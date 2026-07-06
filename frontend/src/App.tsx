@@ -11,97 +11,66 @@ import FAQsSection from './components/FAQsSection';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
 
-// Admin Components & Data Hooks
+// Admin Components & API hooks
 import AdminDashboard from './components/AdminDashboard';
 import AdminLoginModal from './components/AdminLoginModal';
-import { SERVICES, RATINGS } from './data/mockData';
-import { Service, Enquiry, Consultation, Rating, PortfolioItem, TeamMember } from './types';
-import TeamSection, { INITIAL_TEAM_MEMBERS } from './components/TeamSection';
+import { useSiteData, useAdminAuth } from './hooks/useApi';
+import { apiClient } from './api/client';
+import type { Service, Enquiry, Consultation, Rating, PortfolioItem, TeamMember } from './types';
+import TeamSection from './components/TeamSection';
+
+/**
+ * SHAPE-ADAPTERS — the existing components expect specific camelCase shapes
+ * (e.g. `subServices`, `accentColor`, `imageAsset`). The API client already
+ * returns these in the correct shape, but the components import `Service` type
+ * from `types.ts` which has identical field names. The cast through `any`
+ * below is safe because the API client shape matches the type definitions.
+ */
+function asServiceList(s: any[]): Service[] {
+  return s as Service[];
+}
+function asRatingList(r: any[]): Rating[] {
+  return r as Rating[];
+}
+function asTeamList(t: any[]): TeamMember[] {
+  return t as TeamMember[];
+}
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('hero');
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState('');
-  
+
   // Shared state for portfolio checkout redirects
   const [preSelectedService, setPreSelectedService] = useState('');
   const [preSelectedPortfolio, setPreSelectedPortfolio] = useState('');
 
-  // Authentication State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  // Authentication — backed by backend JWT
+  const { isAuthenticated: isAdminAuthenticated, login: doLogin, logout: doLogout, checking } = useAdminAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  // Centralized Lifted Operational Counters State
-  const [stats, setStats] = useState({
-    clients: 140,
-    orders: 380,
-    countries: 18
-  });
+  // All public site data — fetched from backend
+  const {
+    services: apiServices,
+    ratings: apiRatings,
+    resources: apiResources,
+    teamMembers: apiTeamMembers,
+    stats: apiStats,
+    loading: siteLoading,
+    refresh: refreshSite,
+  } = useSiteData();
 
-  // Centralized Lifted Services List State
-  const [services, setServices] = useState<Service[]>(() => SERVICES);
+  // Centralized lifted state — derived from API data
+  const [services, setServices] = useState<Service[]>(() => asServiceList(apiServices));
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => asTeamList(apiTeamMembers));
+  const [ratings, setRatings] = useState<Rating[]>(() => asRatingList(apiRatings));
+  const [stats, setStats] = useState(apiStats);
 
-  // Centralized Lifted Team Members State
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => INITIAL_TEAM_MEMBERS);
-
-  // Centralized Lifted Client Reviews State (Seeded with isApproved: true)
-  const [ratings, setRatings] = useState<Rating[]>(() => 
-    RATINGS.map(r => ({ ...r, isApproved: true }))
-  );
-
-  // Centralized Enquiries State (Seeded with 2 professional entries)
-  const [enquiries, setEnquiries] = useState<Enquiry[]>([
-    {
-      id: 'q-1',
-      name: 'James C.',
-      contactMethod: 'email',
-      contactInfo: 'james@lumina.io',
-      subject: 'Custom Excel Macro Automation',
-      message: 'Hello, we are looking to integrate dynamic Shopify dashboards with an offline Excel workbook. Can we schedule a quick call to talk details?',
-      selectedService: 'MS Office Automation',
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), // 4 hours ago
-      isAnswered: false,
-      timezone: 'United States (EST)'
-    },
-    {
-      id: 'q-2',
-      name: 'Amina Shah',
-      contactMethod: 'whatsapp',
-      contactInfo: '+923009876543',
-      subject: 'Historical Catch-Up',
-      message: 'Hello, we have 2 years of bookkeeping backlog. Need cleanup urgently for our upcoming audit.',
-      selectedService: 'Catch-Up Bookkeeping',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
-      isAnswered: true,
-      timezone: 'Pakistan (PKT)'
-    }
-  ]);
-
-  // Centralized Consultations State (Seeded with 2 initial bookings)
-  const [consultations, setConsultations] = useState<Consultation[]>([
-    {
-      id: 'c-1',
-      name: 'Marcus K.',
-      email: 'm.keller@apex.com',
-      country: 'Germany',
-      selectedDateTime: 'Jul 15, 2026, 3:30 PM (CEST)',
-      timezone: 'Europe/Berlin',
-      pktTime: '15-Jul-2026 6:30 PM (PKT)',
-      isAnswered: false,
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString() // 2 hours ago
-    },
-    {
-      id: 'c-2',
-      name: 'Saira Malik',
-      email: 'saira@creativeagencies.com',
-      country: 'Pakistan',
-      selectedDateTime: 'Jul 18, 2026, 11:00 AM (PKT)',
-      timezone: 'Asia/Karachi',
-      pktTime: '18-Jul-2026 11:00 AM (PKT)',
-      isAnswered: true,
-      timestamp: new Date(Date.now() - 3600000 * 48).toISOString() // 2 days ago
-    }
-  ]);
+  // Sync API data → local state (so components still receive it as props)
+  useEffect(() => { setServices(asServiceList(apiServices)); }, [apiServices]);
+  useEffect(() => { setTeamMembers(asTeamList(apiTeamMembers)); }, [apiTeamMembers]);
+  useEffect(() => { setRatings(asRatingList(apiRatings)); }, [apiRatings]);
+  useEffect(() => { setStats(apiStats); }, [apiStats]);
 
   // Hash-based admin access — visiting #admin auto-opens the login modal
   useEffect(() => {
@@ -117,13 +86,10 @@ export default function App() {
 
   // Scroll spy to highlight active menu section
   useEffect(() => {
-    // If authenticated in admin panel, disable scroll spy to prevent errors
     if (isAdminAuthenticated) return;
-
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 400);
-      const scrollPosition = window.scrollY + 200; // Offset for sticky navbar
-
+      const scrollPosition = window.scrollY + 200;
       const sections = [
         { id: 'hero', element: document.getElementById('hero') },
         { id: 'records', element: document.getElementById('records') },
@@ -133,9 +99,8 @@ export default function App() {
         { id: 'resources', element: document.getElementById('resources') },
         { id: 'team', element: document.getElementById('team') },
         { id: 'faqs', element: document.getElementById('faqs') },
-        { id: 'contact', element: document.getElementById('contact') }
+        { id: 'contact', element: document.getElementById('contact') },
       ];
-
       for (let i = sections.length - 1; i >= 0; i--) {
         const sec = sections[i];
         if (sec.element) {
@@ -147,7 +112,6 @@ export default function App() {
         }
       }
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isAdminAuthenticated]);
@@ -155,10 +119,8 @@ export default function App() {
   const handleNavigate = (sectionId: string) => {
     const targetElement = document.getElementById(sectionId);
     if (targetElement) {
-      // Offset scroll height to account for sticky navbar
-      const yOffset = -80; 
+      const yOffset = -80;
       const y = targetElement.getBoundingClientRect().top + window.scrollY + yOffset;
-      
       window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(sectionId);
     }
@@ -166,109 +128,149 @@ export default function App() {
 
   const handleOrderNow = (serviceName: string, portfolioTitle?: string) => {
     setPreSelectedService(serviceName);
-    if (portfolioTitle) {
-      setPreSelectedPortfolio(portfolioTitle);
-    } else {
-      setPreSelectedPortfolio('');
-    }
-
-    // Scroll smoothly to contact section
+    setPreSelectedPortfolio(portfolioTitle || '');
     handleNavigate('contact');
   };
+
+  // Public submission handlers — POST directly to backend
+  const handleAddEnquiry = async (newEnq: any) => {
+    try {
+      await apiClient.createEnquiry({
+        name: newEnq.name,
+        contactMethod: newEnq.contactMethod,
+        contactInfo: newEnq.contactInfo,
+        subject: newEnq.subject,
+        message: newEnq.message,
+        selectedService: newEnq.selectedService,
+        timezone: newEnq.timezone,
+      });
+    } catch (e) {
+      // Surface error to console — UI keeps optimistic add
+      console.error('Failed to submit enquiry', e);
+    }
+  };
+
+  const handleAddConsultation = async (newConsult: any) => {
+    try {
+      await apiClient.createConsultation({
+        name: newConsult.name,
+        email: newConsult.email,
+        country: newConsult.country,
+        selectedDateTime: newConsult.selectedDateTime,
+        timezone: newConsult.timezone,
+        pktTime: newConsult.pktTime,
+      });
+    } catch (e) {
+      console.error('Failed to submit consultation', e);
+    }
+  };
+
+  // Save site-wide stats (admin updates them through AdminDashboard)
+  const handleUpdateStats = async (newStats: any) => {
+    setStats(newStats);
+    try {
+      const updated = await apiClient.updateStats({
+        clients: newStats.clients,
+        orders: newStats.orders,
+        countries: newStats.countries,
+        label: newStats.label,
+      });
+      setStats(updated);
+    } catch (e) {
+      console.error('Failed to save stats', e);
+    }
+  };
+
+  // While checking existing token, show nothing (avoid flashing public site → admin)
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-japandi-bg text-japandi-soot">
+        <div className="text-sm opacity-60">Loading…</div>
+      </div>
+    );
+  }
 
   // Switch layouts completely upon Authentication
   if (isAdminAuthenticated) {
     return (
       <AdminDashboard
-        onLogout={() => setIsAdminAuthenticated(false)}
-        enquiries={enquiries}
-        onUpdateEnquiries={setEnquiries}
-        consultations={consultations}
-        onUpdateConsultations={setConsultations}
+        onLogout={doLogout}
+        // Pass-through props are no-ops because AdminDashboard uses useAdminData() internally now,
+        // but kept for backward compatibility with its prop interface.
+        enquiries={[]}
+        consultations={[]}
         services={services}
-        onUpdateServices={setServices}
         ratings={ratings}
-        onUpdateRatings={setRatings}
         stats={stats}
-        onUpdateStats={setStats}
         teamMembers={teamMembers}
-        onUpdateTeamMembers={setTeamMembers}
       />
     );
   }
 
   return (
     <div className="min-h-screen bg-japandi-bg text-japandi-soot antialiased flex flex-col justify-between selection:bg-japandi-earth/15 selection:text-japandi-earth">
-      
-      {/* Sticky Navbar with double-click hidden login hook */}
-      <Navbar 
-        activeSection={activeSection} 
-        onNavigate={handleNavigate} 
-        onSelectService={setSelectedServiceId} 
+
+      <Navbar
+        activeSection={activeSection}
+        onNavigate={handleNavigate}
+        onSelectService={setSelectedServiceId}
         onLogoDoubleClick={() => setIsLoginModalOpen(true)}
       />
 
-      {/* Main Content Sections */}
       <main className="flex-grow">
-        
-        {/* 1. Hero Landing Page */}
-        <Hero 
-          onExplore={() => handleNavigate('services')} 
-          onBook={() => handleNavigate('contact')} 
-        />
+        <Hero onExplore={() => handleNavigate('services')} onBook={() => handleNavigate('contact')} />
 
-        {/* 2. Animated Proven Performance Counters (Using reactive stats) */}
-        <RecordSection 
+        <RecordSection
           initialClients={stats.clients}
           initialOrders={stats.orders}
           initialCountries={stats.countries}
         />
 
-        {/* 3. Services, Sub-options & Portfolio Galleries */}
-        <ServicesSection 
+        <ServicesSection
           selectedServiceId={selectedServiceId}
           setSelectedServiceId={setSelectedServiceId}
           onOrderNow={handleOrderNow}
           servicesList={services}
         />
 
-        {/* 5. Dynamic Filterable Client Reviews */}
         <RatingsSection ratingsList={ratings} />
 
-        {/* 6. Downloadable Resources Hub & search queries */}
+        {/* ResourceHubSection currently imports RESOURCES internally; pass nothing extra */}
         <ResourceHubSection />
 
-        {/* 7. Team Members Grid & Corner Active Lights */}
         <TeamSection teamList={teamMembers} />
 
-        {/* 8. Collapsible Common Accordion FAQs */}
         <FAQsSection />
 
-        {/* 9. Contact Queries & Dual Timezone PKT Booking */}
-        <ContactSection 
+        <ContactSection
           preSelectedService={preSelectedService}
           preSelectedPortfolio={preSelectedPortfolio}
           setPreSelectedService={setPreSelectedService}
           setPreSelectedPortfolio={setPreSelectedPortfolio}
-          onAddEnquiry={(newEnq) => setEnquiries(prev => [newEnq, ...prev])}
-          onAddConsultation={(newConsult) => setConsultations(prev => [newConsult, ...prev])}
+          onAddEnquiry={handleAddEnquiry}
+          onAddConsultation={handleAddConsultation}
         />
-
       </main>
 
-      {/* Corporate footer block */}
       <Footer onNavigate={handleNavigate} />
 
-      {/* Hidden Admin Login Modal */}
-      <AdminLoginModal 
+      <AdminLoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onLoginSuccess={() => {
-          setIsAdminAuthenticated(true);
+        onLoginSuccess={async (username: string, password: string) => {
+          try {
+            await doLogin(username, password);
+            setIsLoginModalOpen(false);
+            if (window.location.hash.toLowerCase() === '#admin') {
+              history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+            return true;
+          } catch (e) {
+            return false;
+          }
         }}
       />
 
-      {/* Floating Back to Top Button */}
       <AnimatePresence>
         {showBackToTop && (
           <motion.button
@@ -286,7 +288,6 @@ export default function App() {
           </motion.button>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

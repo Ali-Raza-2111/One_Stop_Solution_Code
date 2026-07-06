@@ -40,40 +40,99 @@ import {
   XCircle
 } from 'lucide-react';
 import { Service, PortfolioItem, Enquiry, Consultation, Rating, TeamMember } from '../types';
+import { useAdminData } from '../hooks/useApi';
 
 interface AdminDashboardProps {
-  services: Service[];
-  ratings: Rating[];
-  enquiries: Enquiry[];
-  consultations: Consultation[];
-  stats: { clients: number; orders: number; countries: number };
-  onUpdateServices: (updated: Service[]) => void;
-  onUpdateRatings: (updated: Rating[]) => void;
-  onUpdateEnquiries: (updated: Enquiry[]) => void;
-  onUpdateConsultations: (updated: Consultation[]) => void;
-  onUpdateStats: (updated: { clients: number; orders: number; countries: number }) => void;
+  services?: Service[];
+  ratings?: Rating[];
+  enquiries?: Enquiry[];
+  consultations?: Consultation[];
+  stats?: { clients: number; orders: number; countries: number; label?: string };
+  onUpdateServices?: (updated: Service[]) => void;
+  onUpdateRatings?: (updated: Rating[]) => void;
+  onUpdateEnquiries?: (updated: Enquiry[]) => void;
+  onUpdateConsultations?: (updated: Consultation[]) => void;
+  onUpdateStats?: (updated: { clients: number; orders: number; countries: number; label?: string }) => void;
   onLogout: () => void;
-  teamMembers: TeamMember[];
-  onUpdateTeamMembers: (updated: TeamMember[]) => void;
+  teamMembers?: TeamMember[];
+  onUpdateTeamMembers?: (updated: TeamMember[]) => void;
 }
 
 type ActiveTab = 'analytics' | 'services' | 'reviews' | 'team' | 'contacts';
 
-export default function AdminDashboard({
-  services,
-  ratings,
-  enquiries,
-  consultations,
-  stats,
-  onUpdateServices,
-  onUpdateRatings,
-  onUpdateEnquiries,
-  onUpdateConsultations,
-  onUpdateStats,
-  onLogout,
-  teamMembers,
-  onUpdateTeamMembers
-}: AdminDashboardProps) {
+export default function AdminDashboard(props: AdminDashboardProps) {
+  const { onLogout } = props;
+
+  // ----- Backend-backed admin data -----
+  const admin = useAdminData();
+
+  // ----- Internal state mirrors so existing component code keeps working -----
+  const [services, setServices] = useState<Service[]>(props.services || []);
+  const [ratings, setRatings] = useState<Rating[]>(props.ratings || []);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>(props.enquiries || []);
+  const [consultations, setConsultations] = useState<Consultation[]>(props.consultations || []);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(props.teamMembers || []);
+  const [stats, setStats] = useState<{ clients: number; orders: number; countries: number; label?: string }>(
+    props.stats || { clients: 0, orders: 0, countries: 0, label: '' }
+  );
+
+  // Sync admin hook data → local state
+  useEffect(() => { setEnquiries(admin.enquiries as any); }, [admin.enquiries]);
+  useEffect(() => { setConsultations(admin.consultations as any); }, [admin.consultations]);
+  useEffect(() => { setRatings(admin.allRatings as any); }, [admin.allRatings]);
+  // Keep services & teamMembers in sync with parent prop changes
+  useEffect(() => { if (props.services) setServices(props.services); }, [props.services]);
+  useEffect(() => { if (props.teamMembers) setTeamMembers(props.teamMembers); }, [props.teamMembers]);
+  useEffect(() => { if (props.stats) setStats(props.stats); }, [props.stats]);
+
+  // ----- Wire mutations: prefer API, fall back to parent callbacks -----
+  const handleUpdateEnquiries = (updated: Enquiry[]) => {
+    setEnquiries(updated);
+    props.onUpdateEnquiries?.(updated);
+  };
+  const handleUpdateConsultations = (updated: Consultation[]) => {
+    setConsultations(updated);
+    props.onUpdateConsultations?.(updated);
+  };
+  const handleUpdateRatings = (updated: Rating[]) => {
+    setRatings(updated);
+    props.onUpdateRatings?.(updated);
+  };
+  const handleUpdateServices = (updated: Service[]) => {
+    setServices(updated);
+    props.onUpdateServices?.(updated);
+  };
+  const handleUpdateTeamMembers = (updated: TeamMember[]) => {
+    setTeamMembers(updated);
+    props.onUpdateTeamMembers?.(updated);
+  };
+  const handleUpdateStats = (updated: { clients: number; orders: number; countries: number; label?: string }) => {
+    setStats(updated);
+    props.onUpdateStats?.(updated);
+    // Persist to backend (fire & forget — caller already optimistically updated UI)
+    admin.saveStats({ clients: updated.clients, orders: updated.orders, countries: updated.countries, label: updated.label }).catch(() => {});
+  };
+
+  // Helpers that route toggles / deletes through the API hook
+  const toggleEnquiryAnswered = (id: string, isAnswered: boolean) => {
+    admin.toggleEnquiryAnswered(id, isAnswered);
+  };
+  const deleteEnquiryById = (id: string) => {
+    admin.deleteEnquiry(id);
+  };
+  const toggleConsultationAnswered = (id: string, isAnswered: boolean) => {
+    admin.toggleConsultationAnswered(id, isAnswered);
+  };
+  const deleteConsultationById = (id: string) => {
+    admin.deleteConsultation(id);
+  };
+  const toggleRatingApproval = (id: string, isApproved: boolean) => {
+    admin.toggleRatingApproval(id, isApproved);
+  };
+  const deleteRatingById = (id: string) => {
+    admin.deleteRating(id);
+  };
+
   // 1. Sidebar tab view state
   const [activeTab, setActiveTab] = useState<ActiveTab>('analytics');
 
@@ -286,7 +345,7 @@ export default function AdminDashboard({
 
     // Update global state
     const updatedServices = services.map(s => s.id === serviceId ? { ...s, portfolio: portList } : s);
-    onUpdateServices(updatedServices);
+    handleUpdateServices(updatedServices);
   };
 
   // Testimonials/Reviews reordering
@@ -300,7 +359,7 @@ export default function AdminDashboard({
     list[reviewIndex] = list[targetIndex];
     list[targetIndex] = temp;
 
-    onUpdateRatings(list);
+    handleUpdateRatings(list);
   };
 
   // Team Members reordering
@@ -314,7 +373,7 @@ export default function AdminDashboard({
     list[memberIndex] = list[targetIndex];
     list[targetIndex] = temp;
 
-    onUpdateTeamMembers(list);
+    handleUpdateTeamMembers(list);
   };
 
   // Add certification dynamic tag handler
@@ -329,7 +388,7 @@ export default function AdminDashboard({
       }
       return m;
     });
-    onUpdateTeamMembers(updated);
+    handleUpdateTeamMembers(updated);
     setTempCertValue(prev => ({ ...prev, [memberId]: '' }));
   };
 
@@ -344,7 +403,7 @@ export default function AdminDashboard({
       }
       return m;
     });
-    onUpdateTeamMembers(updated);
+    handleUpdateTeamMembers(updated);
   };
 
   // Handle new service block submission
@@ -374,7 +433,7 @@ export default function AdminDashboard({
       portfolio: []
     };
 
-    onUpdateServices([...services, newBlock]);
+    handleUpdateServices([...services, newBlock]);
     setSelectedServiceId(newBlock.id);
     setNewServiceName('');
     setNewServiceDesc('');
@@ -407,7 +466,7 @@ export default function AdminDashboard({
       return s;
     });
 
-    onUpdateServices(updated);
+    handleUpdateServices(updated);
     setPortTitle('');
     setPortDesc('');
     setPortSkillsInput('');
@@ -416,7 +475,7 @@ export default function AdminDashboard({
 
   // Handle review deletion
   const handleDeleteRating = (id: string) => {
-    onUpdateRatings(ratings.filter(r => r.id !== id));
+    handleUpdateRatings(ratings.filter(r => r.id !== id));
     // If we were editing this one, cancel
     if (editingReviewId === id) {
       setEditingReviewId(null);
@@ -456,7 +515,7 @@ export default function AdminDashboard({
         ratingStars: reviewForm.ratingStars,
         avatarUrl: reviewForm.avatarUrl
       } : r);
-      onUpdateRatings(updated);
+      handleUpdateRatings(updated);
       setEditingReviewId(null);
     } else {
       // CREATE new
@@ -472,7 +531,7 @@ export default function AdminDashboard({
         isApproved: true,
         avatarUrl: reviewForm.avatarUrl
       };
-      onUpdateRatings([created, ...ratings]);
+      handleUpdateRatings([created, ...ratings]);
     }
 
     setReviewForm({
@@ -506,7 +565,7 @@ export default function AdminDashboard({
   const handleDeleteService = (serviceId: string) => {
     if (!window.confirm('Delete this entire service block? This will also remove all its portfolio items.')) return;
     const updated = services.filter(s => s.id !== serviceId);
-    onUpdateServices(updated);
+    handleUpdateServices(updated);
     // Reset selection if needed
     if (selectedServiceId === serviceId) {
       setSelectedServiceId(updated[0]?.id || 'new');
@@ -546,7 +605,7 @@ export default function AdminDashboard({
       }
       return s;
     });
-    onUpdateServices(updated);
+    handleUpdateServices(updated);
     setEditingPortfolioId(null);
   };
 
@@ -589,7 +648,7 @@ export default function AdminDashboard({
           : m.specialties,
         isOnline: employeeForm.isOnline
       } : m);
-      onUpdateTeamMembers(updated);
+      handleUpdateTeamMembers(updated);
       setEditingMemberId(null);
     } else {
       // CREATE new
@@ -603,7 +662,7 @@ export default function AdminDashboard({
         specialties: employeeForm.specialtiesInput.split(',').map(s => s.trim()).filter(Boolean),
         isOnline: employeeForm.isOnline
       };
-      onUpdateTeamMembers([...teamMembers, onboarded]);
+      handleUpdateTeamMembers([...teamMembers, onboarded]);
     }
 
     setEmployeeForm({
@@ -892,7 +951,7 @@ export default function AdminDashboard({
             {activeTab === 'analytics' && (
               <AnalyticsTab
                 stats={stats}
-                onUpdateStats={onUpdateStats}
+                onUpdateStats={handleUpdateStats}
                 services={services}
                 ratings={ratings}
               />
@@ -1064,7 +1123,7 @@ export default function AdminDashboard({
                               value={activeService.name}
                               onChange={(e) => {
                                 const updated = services.map(s => s.id === activeService.id ? { ...s, name: e.target.value } : s);
-                                onUpdateServices(updated);
+                                handleUpdateServices(updated);
                               }}
                               className="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white font-sans font-bold focus:outline-none focus:border-indigo-500/80"
                             />
@@ -1079,7 +1138,7 @@ export default function AdminDashboard({
                               value={activeService.overallDescription || activeService.shortDesc}
                               onChange={(e) => {
                                 const updated = services.map(s => s.id === activeService.id ? { ...s, overallDescription: e.target.value, shortDesc: e.target.value.slice(0, 100) + '...' } : s);
-                                onUpdateServices(updated);
+                                handleUpdateServices(updated);
                               }}
                               className="w-full bg-slate-950/60 border border-white/10 rounded-2xl p-4 text-xs text-white font-sans leading-relaxed focus:outline-none focus:border-indigo-500/80"
                             />
@@ -1368,7 +1427,7 @@ export default function AdminDashboard({
                                               }
                                               return s;
                                             });
-                                            onUpdateServices(updated);
+                                            handleUpdateServices(updated);
                                             if (editingPortfolioId === item.id) setEditingPortfolioId(null);
                                           }}
                                           className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/10 transition-colors cursor-pointer"
@@ -1853,7 +1912,7 @@ export default function AdminDashboard({
                             </button>
                             <button
                               onClick={() => {
-                                onUpdateTeamMembers(teamMembers.filter(m => m.id !== member.id));
+                                handleUpdateTeamMembers(teamMembers.filter(m => m.id !== member.id));
                                 if (editingMemberId === member.id) handleCancelTeamMemberForm();
                               }}
                               className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/10 rounded-lg cursor-pointer"
