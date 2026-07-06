@@ -79,3 +79,15 @@ export interface ResourceItem {
   fileSize: string;
   downloadCount: number;
 }
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  bio: string;
+  avatarUrl: string;
+  specialties: string[];
+  isOnline: boolean;
+  email: string;
+}
+

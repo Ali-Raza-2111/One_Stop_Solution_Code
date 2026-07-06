@@ -1,18 +1,8 @@
 import { motion } from 'motion/react';
 import { Mail, Shield, Award, CheckCircle } from 'lucide-react';
+import { TeamMember } from '../types';
 
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  bio: string;
-  avatarUrl: string;
-  specialties: string[];
-  isOnline: boolean;
-  email: string;
-}
-
-const TEAM_MEMBERS: TeamMember[] = [
+export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   {
     id: "member-1",
     name: "Sophia Martinez, CPA",
@@ -45,7 +35,11 @@ const TEAM_MEMBERS: TeamMember[] = [
   }
 ];
 
-export default function TeamSection() {
+interface TeamSectionProps {
+  teamList?: TeamMember[];
+}
+
+export default function TeamSection({ teamList = INITIAL_TEAM_MEMBERS }: TeamSectionProps) {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -64,6 +58,9 @@ export default function TeamSection() {
       transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } 
     }
   };
+
+  const membersToRender = teamList;
+
 
   return (
     <section id="team" className="py-24 bg-transparent border-b border-white/20">
@@ -88,7 +85,7 @@ export default function TeamSection() {
           viewport={{ once: true, margin: "-80px" }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
-          {TEAM_MEMBERS.map((member) => (
+          {membersToRender.map((member) => (
             <motion.div
               key={member.id}
               id={`team-card-${member.id}`}

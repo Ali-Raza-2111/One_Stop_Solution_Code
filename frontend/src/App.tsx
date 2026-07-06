@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ServicesSection from './components/ServicesSection';
-import TeamSection from './components/TeamSection';
 import RecordSection from './components/RecordSection';
 import ResourceHubSection from './components/ResourceHubSection';
 import RatingsSection from './components/RatingsSection';
@@ -16,7 +15,8 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import AdminLoginModal from './components/AdminLoginModal';
 import { SERVICES, RATINGS } from './data/mockData';
-import { Service, Enquiry, Consultation, Rating, PortfolioItem } from './types';
+import { Service, Enquiry, Consultation, Rating, PortfolioItem, TeamMember } from './types';
+import TeamSection, { INITIAL_TEAM_MEMBERS } from './components/TeamSection';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('hero');
@@ -40,6 +40,9 @@ export default function App() {
 
   // Centralized Lifted Services List State
   const [services, setServices] = useState<Service[]>(() => SERVICES);
+
+  // Centralized Lifted Team Members State
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => INITIAL_TEAM_MEMBERS);
 
   // Centralized Lifted Client Reviews State (Seeded with isApproved: true)
   const [ratings, setRatings] = useState<Rating[]>(() => 
@@ -176,6 +179,8 @@ export default function App() {
         onUpdateRatings={setRatings}
         stats={stats}
         onUpdateStats={setStats}
+        teamMembers={teamMembers}
+        onUpdateTeamMembers={setTeamMembers}
       />
     );
   }
@@ -222,7 +227,7 @@ export default function App() {
         <ResourceHubSection />
 
         {/* 7. Team Members Grid & Corner Active Lights */}
-        <TeamSection />
+        <TeamSection teamList={teamMembers} />
 
         {/* 8. Collapsible Common Accordion FAQs */}
         <FAQsSection />
