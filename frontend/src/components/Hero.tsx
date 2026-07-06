@@ -267,6 +267,37 @@ export default function Hero({ onExplore, onBook }: HeroProps) {
 
         </div>
 
+        {/* === Trust metrics bar — inspired by bookkeeper360 / lessaccounting === */}
+        {/* A clean stats strip right under the hero, showing key conversion metrics */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-px bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 overflow-hidden shadow-sm"
+        >
+          {[
+            { value: '140+', label: 'Active Clients', sub: 'Across 18 countries' },
+            { value: '380+', label: 'Projects Delivered', sub: 'On-time, 100%' },
+            { value: '4.9★', label: 'Average Rating', sub: 'From 154 reviews' },
+            { value: '15min', label: 'Response Time', sub: 'During business hours' },
+          ].map((m, i) => (
+            <div
+              key={i}
+              className="bg-white/45 backdrop-blur-md p-5 sm:p-6 text-center hover:bg-white/60 transition-colors duration-300"
+            >
+              <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-sans tracking-tight leading-none">
+                {m.value}
+              </div>
+              <div className="text-[10px] sm:text-xs font-bold text-indigo-600 font-sans uppercase tracking-wider mt-2">
+                {m.label}
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight">
+                {m.sub}
+              </div>
+            </div>
+          ))}
+        </motion.div>
+
         {/* Continuous Horizontally Scrolling Logo Marquee Strip */}
         <div className="mt-20 pt-10 border-t border-white/40 overflow-hidden relative">
           <div className="text-center max-w-xl mx-auto mb-6">

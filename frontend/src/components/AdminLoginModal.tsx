@@ -26,13 +26,26 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: Adm
 
     setIsSubmitting(true);
 
+    // Credential verification (demo credentials for preview)
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_PASSWORD = 'admin123';
+
     // Simulate small verification delay
     setTimeout(() => {
-      setIsSubmitting(false);
-      onLoginSuccess();
-      setUsername('');
-      setPassword('');
-      onClose();
+      if (username.trim() === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        setIsSubmitting(false);
+        onLoginSuccess();
+        setUsername('');
+        setPassword('');
+        onClose();
+        // Clear the #admin hash so refresh doesn't re-trigger the modal
+        if (window.location.hash.toLowerCase() === '#admin') {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      } else {
+        setIsSubmitting(false);
+        setError('Invalid credentials. Try admin / admin123');
+      }
     }, 700);
   };
 

@@ -35,3 +35,217 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* =================================================================
+   Custom Dark Scrollbar — for admin dashboard scroll containers
+   Replaces the ugly default white-track scrollbar with a slim,
+   dark-themed one that matches the slate-950 admin UI.
+   ================================================================= */
+.admin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.admin-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4); /* slate-950/40 */
+  border-radius: 9999px;
+}
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.35); /* indigo-500/35 */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6); /* indigo-500/60 */
+  background-clip: padding-box;
+}
+.admin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(15, 23, 42, 0.4);
+}
+
+/* =================================================================
+   React Day Picker — custom theming
+   Override default RDP styles to match our Japandi/indigo design.
+   ================================================================= */
+.rdp-root {
+  --rdp-accent-color: #6366F1;
+  --rdp-background-color: rgba(99, 102, 241, 0.08);
+  --rdp-accent-color-dark: #4F46E5;
+  --rdp-selected-border: #6366F1;
+  margin: 0 auto;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+.rdp-months {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.rdp-month {
+  display: inline-table;
+  margin: 0;
+}
+
+.rdp-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.25rem 0.75rem;
+  position: relative;
+}
+
+.rdp-caption-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1E293B;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rdp-nav {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.5rem 0.25rem;
+  pointer-events: none;
+}
+
+.rdp-nav-button {
+  pointer-events: auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rdp-nav-button:hover {
+  background-color: #6366F1;
+  color: #fff;
+  border-color: #6366F1;
+}
+
+.rdp-nav-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rdp-table {
+  border-collapse: collapse;
+  margin: 0 auto;
+}
+
+.rdp-head-row {
+  display: table-row;
+}
+
+.rdp-head-cell {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  padding: 0 0 6px;
+  text-align: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.rdp-row {
+  display: table-row;
+}
+
+.rdp-cell {
+  padding: 2px;
+  text-align: center;
+}
+
+.rdp-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: #1E293B;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.rdp-day:hover:not(.rdp-day-disabled):not(.rdp-day-selected) {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #4F46E5;
+}
+
+.rdp-day-today {
+  font-weight: 800;
+  color: #6366F1;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.rdp-day-selected {
+  background-color: #6366F1;
+  color: #fff;
+  border-color: #6366F1;
+  box-shadow: 0 4px 10px -3px rgba(99, 102, 241, 0.45);
+}
+
+.rdp-day-selected:hover {
+  background-color: #4F46E5;
+  color: #fff;
+}
+
+.rdp-day-disabled {
+  color: #CBD5E1;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rdp-day-outside {
+  color: #CBD5E1;
+  opacity: 0.5;
+}
+
+/* Marquee animation for trust logo strip */
+@keyframes marquee-right {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee-right {
+  animation: marquee-right 32s linear infinite;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Line clamp utilities (in case Tailwind line-clamp plugin not active) */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+

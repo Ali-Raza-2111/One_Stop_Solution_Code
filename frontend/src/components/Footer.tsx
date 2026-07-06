@@ -1,4 +1,4 @@
-import { Shield, Mail, Phone, MapPin } from 'lucide-react';
+import { Shield, Mail, Phone, MapPin, Lock } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (sectionId: string) => void;
@@ -119,6 +119,15 @@ export default function Footer({ onNavigate }: FooterProps) {
             <span>Security rules audited</span>
             <span>•</span>
             <span>Non-Disclosure Agreements (NDA) guaranteed</span>
+            <span>•</span>
+            <a
+              href="#admin"
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-indigo-600 transition-colors font-mono uppercase tracking-wider"
+              title="Administrator login"
+            >
+              <Lock className="w-3 h-3" />
+              Admin
+            </a>
           </div>
         </div>
 

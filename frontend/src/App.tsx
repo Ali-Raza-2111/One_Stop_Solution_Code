@@ -103,6 +103,18 @@ export default function App() {
     }
   ]);
 
+  // Hash-based admin access — visiting #admin auto-opens the login modal
+  useEffect(() => {
+    const checkAdminHash = () => {
+      if (window.location.hash.toLowerCase() === '#admin') {
+        setIsLoginModalOpen(true);
+      }
+    };
+    checkAdminHash();
+    window.addEventListener('hashchange', checkAdminHash);
+    return () => window.removeEventListener('hashchange', checkAdminHash);
+  }, []);
+
   // Scroll spy to highlight active menu section
   useEffect(() => {
     // If authenticated in admin panel, disable scroll spy to prevent errors
