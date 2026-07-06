@@ -137,15 +137,15 @@ export default function ServicesSection({
   servicesList
 }: ServicesSectionProps) {
   const getServiceById = (id: string): Service => {
-    // If servicesList is provided, search there first!
-    if (servicesList) {
-      const foundInList = servicesList.find(s => s.id === id);
-      if (foundInList) return foundInList;
-    }
-
     const resolvedId = (id === 'accounting' || id === 'bookkeeping-accounting') ? 'bookkeeping' : 
                        (id === 'catch-up-bookkeeping') ? 'catchup' :
                        (id === 'tax-services') ? 'tax' : id;
+
+    // If servicesList is provided, search there first!
+    if (servicesList) {
+      const foundInList = servicesList.find(s => s.id === resolvedId);
+      if (foundInList) return foundInList;
+    }
 
     if (resolvedId === 'catchup' && !servicesList) {
       return CATCHUP_SERVICE;
@@ -406,6 +406,18 @@ export default function ServicesSection({
   const visibleServices = displayServicesList;
 
   const getImageForService = (id: string): string => {
+    // If servicesList is provided, search there first!
+    if (servicesList) {
+      const foundInList = servicesList.find(s => s.id === id);
+      if (foundInList && foundInList.imageAsset) {
+        return foundInList.imageAsset;
+      }
+    }
+    const found = SERVICES.find(s => s.id === id);
+    if (found && found.imageAsset) {
+      return found.imageAsset;
+    }
+
     switch (id) {
       case 'bookkeeping':
       case 'accounting':

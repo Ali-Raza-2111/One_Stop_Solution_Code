@@ -18,7 +18,8 @@ import {
   User,
   Shield,
   Star,
-  Globe2
+  Globe2,
+  Sparkles
 } from 'lucide-react';
 import { Service, PortfolioItem, Enquiry, Consultation, Rating } from '../types';
 
@@ -58,26 +59,68 @@ export default function AdminDashboard({
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
 
-  // Page B: Content Manager Forms
-  const [isAddingService, setIsAddingService] = useState(false);
-  const [newService, setNewService] = useState({
-    name: '',
-    shortDesc: '',
-    overallDescription: '',
-    accentColor: '#4f46e5',
-    imageAsset: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800',
-    iconName: 'Briefcase'
+  // Page B: Content Manager (Visual Two-Column Workspace State)
+  const [localServices, setLocalServices] = useState<Service[]>(services);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(services[0]?.id || null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Real Images for Picker
+  const REAL_IMAGE_ASSETS = [
+    {
+      id: "img1",
+      url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800",
+      title: "Financial Ledger & Chart"
+    },
+    {
+      id: "img2",
+      url: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800",
+      title: "Tax Form & Calculator"
+    },
+    {
+      id: "img3",
+      url: "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&q=80&w=800",
+      title: "Data Automation & Board"
+    }
+  ];
+
+  const ACCENT_COLORS = [
+    { name: 'Mint', value: '#10b981', tw: 'emerald' },
+    { name: 'Lilac', value: '#a855f7', tw: 'purple' },
+    { name: 'Sky Blue', value: '#0ea5e9', tw: 'sky' },
+    { name: 'Royal Indigo', value: '#4f46e5', tw: 'indigo' },
+    { name: 'Gold', value: '#f59e0b', tw: 'amber' },
+    { name: 'Coral', value: '#f43f5e', tw: 'rose' }
+  ];
+
+  // Temp holder for creating a brand new service block
+  const [newServiceData, setNewServiceData] = useState<Service>({
+    id: 'new',
+    name: 'New Custom Service',
+    shortDesc: 'A short overview description of this custom service capability.',
+    overallDescription: 'A deep-dive description explaining the workflow, benefits, and tools used to deliver this capability.',
+    accentColor: '#10b981',
+    textColor: '#ffffff',
+    tailwindColor: 'emerald',
+    iconName: 'Sparkles',
+    imageAsset: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&q=80&w=800',
+    portfolio: []
   });
 
-  const [activeServiceForPortfolio, setActiveServiceForPortfolio] = useState<string | null>(null);
-  const [newPortfolio, setNewPortfolio] = useState({
-    title: '',
-    description: '',
-    skillsString: '',
-    mediaTitle: '',
-    mediaUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400'
-  });
+  // Inline "Quick Add" Form states
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickDesc, setQuickDesc] = useState('');
+  const [quickImg, setQuickImg] = useState('https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400');
+  const [quickSkills, setQuickSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState('');
+
+  // Keep localServices in sync with global services prop safely using serialized primitive hash
+  const servicesHash = services.map(s => `${s.id}-${s.portfolio?.length || 0}-${s.name}-${s.shortDesc}`).join(',');
+  React.useEffect(() => {
+    setLocalServices(services);
+    if (services.length > 0 && !selectedServiceId) {
+      setSelectedServiceId(services[0].id);
+    }
+  }, [servicesHash]);
 
   // Page C: Reviews form
   const [isAddingReview, setIsAddingReview] = useState(false);
@@ -120,85 +163,128 @@ export default function AdminDashboard({
     onUpdateConsultations(updated);
   };
 
-  // Create Service
-  const handleCreateService = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newService.name.trim() || !newService.shortDesc.trim()) return;
+  // Helper to update fields on the active editing service
+  const isNew = selectedServiceId === 'new';
+  const editingService = isNew ? newServiceData : (localServices.find(s => s.id === selectedServiceId) || null);
 
-    const created: Service = {
-      id: `srv-${Date.now()}`,
-      name: newService.name,
-      shortDesc: newService.shortDesc,
-      overallDescription: newService.overallDescription || newService.shortDesc,
-      accentColor: newService.accentColor,
-      textColor: '#ffffff',
-      tailwindColor: 'indigo',
-      iconName: newService.iconName,
-      subServices: [
-        {
-          id: `sub-${Date.now()}-1`,
-          name: `${newService.name} Core Support`,
-          accentColor: newService.accentColor,
-          textColor: '#ffffff',
-          tailwindColor: 'indigo',
-          description: 'Meticulous day-to-day administrative and financial management operations.'
-        }
-      ],
-      portfolio: []
-    };
-
-    onUpdateServices([...services, created]);
-    setIsAddingService(false);
-    setNewService({
-      name: '',
-      shortDesc: '',
-      overallDescription: '',
-      accentColor: '#4f46e5',
-      imageAsset: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800',
-      iconName: 'Briefcase'
-    });
+  const handleUpdateEditingField = (fields: Partial<Service>) => {
+    if (isNew) {
+      setNewServiceData(prev => ({ ...prev, ...fields }));
+    } else {
+      if (!selectedServiceId) return;
+      setLocalServices(prev => prev.map(s => s.id === selectedServiceId ? { ...s, ...fields } : s));
+    }
   };
 
-  // Add Portfolio Item
-  const handleAddPortfolio = (e: React.FormEvent, serviceId: string) => {
-    e.preventDefault();
-    if (!newPortfolio.title.trim() || !newPortfolio.description.trim()) return;
+  // Tag handler for inline skills
+  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const clean = skillInput.trim().replace(/,$/, '');
+      if (clean && !quickSkills.includes(clean)) {
+        setQuickSkills([...quickSkills, clean]);
+      }
+      setSkillInput('');
+    }
+  };
 
-    const skills = newPortfolio.skillsString
-      ? newPortfolio.skillsString.split(',').map(s => s.trim()).filter(Boolean)
-      : ['General'];
+  // Add Portfolio item in local builder state
+  const handleAddQuickPortfolio = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTitle.trim() || !quickDesc.trim()) return;
 
     const newItem: PortfolioItem = {
       id: `port-${Date.now()}`,
-      title: newPortfolio.title,
-      description: newPortfolio.description,
-      skills,
+      title: quickTitle,
+      description: quickDesc,
+      skills: quickSkills.length > 0 ? quickSkills : ['General'],
       mediaType: 'pdf',
-      mediaTitle: newPortfolio.mediaTitle || 'Case_Study.pdf',
-      mediaUrl: newPortfolio.mediaUrl,
-      thumbnailUrl: newPortfolio.thumbnailUrl
+      mediaTitle: 'Project_Overview.pdf',
+      mediaUrl: quickImg,
+      thumbnailUrl: quickImg
     };
 
-    const updated = services.map(s => {
-      if (s.id === serviceId) {
-        return {
-          ...s,
-          portfolio: [...(s.portfolio || []), newItem]
-        };
-      }
-      return s;
-    });
+    if (isNew) {
+      setNewServiceData(prev => ({
+        ...prev,
+        portfolio: [...(prev.portfolio || []), newItem]
+      }));
+    } else {
+      setLocalServices(prev => prev.map(s => {
+        if (s.id === selectedServiceId) {
+          return {
+            ...s,
+            portfolio: [...(s.portfolio || []), newItem]
+          };
+        }
+        return s;
+      }));
+    }
 
-    onUpdateServices(updated);
-    setActiveServiceForPortfolio(null);
-    setNewPortfolio({
-      title: '',
-      description: '',
-      skillsString: '',
-      mediaTitle: '',
-      mediaUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400'
-    });
+    // Clear inputs
+    setQuickTitle('');
+    setQuickDesc('');
+    setQuickSkills([]);
+  };
+
+  // Delete portfolio item in local builder state
+  const handleDeleteQuickPortfolio = (portfolioItemId: string) => {
+    if (isNew) {
+      setNewServiceData(prev => ({
+        ...prev,
+        portfolio: (prev.portfolio || []).filter(p => p.id !== portfolioItemId)
+      }));
+    } else {
+      setLocalServices(prev => prev.map(s => {
+        if (s.id === selectedServiceId) {
+          return {
+            ...s,
+            portfolio: (s.portfolio || []).filter(p => p.id !== portfolioItemId)
+          };
+        }
+        return s;
+      }));
+    }
+  };
+
+  // Discard local changes and reset from global props
+  const handleDiscardChanges = () => {
+    setLocalServices(services);
+    if (isNew) {
+      setSelectedServiceId(services[0]?.id || null);
+    }
+  };
+
+  // Save changes and publish to live site (commits back to global state)
+  const handleSaveAndPublish = () => {
+    if (isNew) {
+      if (!newServiceData.name.trim() || !newServiceData.shortDesc.trim()) {
+        return;
+      }
+      const actualId = `srv-${Date.now()}`;
+      const createdService: Service = {
+        ...newServiceData,
+        id: actualId,
+        subServices: [
+          {
+            id: `sub-${Date.now()}-1`,
+            name: `${newServiceData.name} Core Support`,
+            accentColor: newServiceData.accentColor,
+            textColor: '#ffffff',
+            tailwindColor: 'indigo',
+            description: newServiceData.shortDesc
+          }
+        ]
+      };
+      const updatedList = [...localServices, createdService];
+      onUpdateServices(updatedList);
+      setLocalServices(updatedList);
+      setSelectedServiceId(actualId);
+    } else {
+      onUpdateServices(localServices);
+    }
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   // Toggle Review Approval
@@ -270,6 +356,14 @@ export default function AdminDashboard({
       {/* Persistence Left Glass Sidebar */}
       <aside className="w-72 bg-slate-900/40 backdrop-blur-xl border-r border-white/5 p-6 flex flex-col justify-between relative z-10 shrink-0">
         <div>
+          {/* Escape Route Exit Button */}
+          <button
+            onClick={onLogout}
+            className="w-full mb-6 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+          >
+            <span>← Exit Admin Workspace</span>
+          </button>
+
           {/* Admin Header Title */}
           <div className="flex items-center space-x-3 mb-10 pb-5 border-b border-white/5">
             <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-md shadow-indigo-600/20">
@@ -598,337 +692,435 @@ export default function AdminDashboard({
             {/* PAGE B: CONTENT MANAGER (SERVICES & PORTFOLIOS) */}
             {/* ========================================================= */}
             {activeTab === 'services' && (
-              <div className="space-y-8">
-                {/* Header Action Button */}
-                <div className="flex justify-between items-center bg-slate-900/40 p-5 rounded-2xl border border-white/5">
-                  <div>
-                    <h3 className="text-sm font-sans font-bold text-white">Service Capabilities Catalog</h3>
-                    <p className="text-[11px] text-slate-400 font-sans mt-1">Configure what services and case study cards show up in your public sections.</p>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* COLUMN A: The Active Service Stack & Live Preview (Left Column - 4 Cols) */}
+                <div className="lg:col-span-4 space-y-4">
+                  {/* "Add New Service" Primary Hub */}
+                  <button
+                    onClick={() => {
+                      setSelectedServiceId('new');
+                      setNewServiceData({
+                        id: 'new',
+                        name: 'New Custom Service',
+                        shortDesc: 'A short overview description of this custom service capability.',
+                        overallDescription: 'A deep-dive description explaining the workflow, benefits, and tools used to deliver this capability.',
+                        accentColor: '#10b981',
+                        textColor: '#ffffff',
+                        tailwindColor: 'emerald',
+                        iconName: 'Sparkles',
+                        imageAsset: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&q=80&w=800',
+                        portfolio: []
+                      });
+                    }}
+                    className={`w-full p-4 rounded-2xl border border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-2 cursor-pointer text-center bg-white/[0.02] ${
+                      selectedServiceId === 'new'
+                        ? 'border-indigo-500 bg-indigo-500/[0.03]'
+                        : 'border-white/10 hover:border-white/25 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-full border ${selectedServiceId === 'new' ? 'border-indigo-400 text-indigo-400 bg-indigo-500/10' : 'border-white/10 text-slate-400'}`}>
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs font-bold text-white">Create New Service Block</div>
+                    <div className="text-[9px] text-slate-500 font-sans">Click to launch custom template</div>
+                  </button>
+
+                  {/* Interactive Service Cards */}
+                  <div className="space-y-3">
+                    {localServices.map((srv) => {
+                      const isSelected = srv.id === selectedServiceId;
+                      return (
+                        <motion.div
+                          key={srv.id}
+                          layout
+                          onClick={() => setSelectedServiceId(srv.id)}
+                          className={`group cursor-pointer rounded-2xl border p-4 transition-all duration-300 relative overflow-hidden flex items-center space-x-4 bg-slate-900/40 backdrop-blur-md ${
+                            isSelected
+                              ? 'border-white/10'
+                              : 'border-white/5 hover:border-white/10 hover:bg-white/5'
+                          }`}
+                          style={{
+                            borderColor: isSelected ? srv.accentColor : undefined,
+                            boxShadow: isSelected ? `0 0 20px -5px ${srv.accentColor}40` : undefined,
+                          }}
+                        >
+                          {/* Accent strip on the side */}
+                          <div 
+                            className="absolute left-0 top-0 bottom-0 w-1" 
+                            style={{ backgroundColor: srv.accentColor }} 
+                          />
+                          
+                          {/* Thumbnail image */}
+                          <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-slate-950 border border-white/5 relative">
+                            <img
+                              src={srv.imageAsset || 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&q=80&w=400'}
+                              alt={srv.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+
+                          {/* Title & Projects Badge */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-sans font-bold text-white truncate">{srv.name}</h4>
+                            <p className="text-[10px] text-slate-400 mt-0.5 truncate">{srv.shortDesc}</p>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase text-indigo-400 bg-indigo-950/40 border border-indigo-500/15 rounded px-1.5 py-0.5">
+                                📁 {srv.portfolio?.length || 0} Projects
+                              </span>
+                              {!['bookkeeping', 'taxation', 'consulting'].includes(srv.id) && (
+                                <span className="text-[8px] font-mono bg-indigo-600/20 border border-indigo-500/25 px-1 rounded-md text-indigo-300 uppercase">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-                  {!isAddingService && (
-                    <button
-                      onClick={() => setIsAddingService(true)}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all flex items-center space-x-1.5 cursor-pointer shadow-md shadow-indigo-600/10"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Create New Service</span>
-                    </button>
-                  )}
                 </div>
 
-                {/* Form: Add Service */}
-                <AnimatePresence>
-                  {isAddingService && (
-                    <motion.form
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-                      onSubmit={handleCreateService}
-                      className="bg-slate-900/60 rounded-3xl p-6 border border-white/10 space-y-4 overflow-hidden"
-                    >
-                      <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                        <span className="text-xs font-mono font-bold uppercase tracking-widest text-indigo-400">Add Global Service Category</span>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsAddingService(false)}
-                          className="p-1 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Service Category Name</label>
-                          <input 
-                            type="text"
-                            required
-                            placeholder="e.g. Corporate Tax Minimization"
-                            value={newService.name}
-                            onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                          />
+                {/* COLUMN B: The Ultimate Service Builder Workspace (Right Column - 8 Cols) */}
+                <div className="lg:col-span-8 bg-slate-900/30 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative flex flex-col justify-between overflow-hidden min-h-[500px]">
+                  {editingService ? (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={selectedServiceId}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6 pb-20"
+                      >
+                        {/* Header of Workspace */}
+                        <div className="border-b border-white/5 pb-4">
+                          <span className="text-[10px] font-mono font-bold uppercase text-indigo-400 tracking-wider">
+                            {isNew ? 'New Service Creator' : 'Editing Service Details'}
+                          </span>
+                          <h3 className="text-lg font-sans font-bold text-white mt-1">
+                            {editingService.name || 'Untitled Service'}
+                          </h3>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Accent Color HEX</label>
-                            <input 
-                              type="text"
-                              required
-                              placeholder="#10b981"
-                              value={newService.accentColor}
-                              onChange={(e) => setNewService({ ...newService, accentColor: e.target.value })}
-                              className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                            />
-                          </div>
+                        {/* Section 1: Core Configurator */}
+                        <div className="space-y-4">
+                          <h4 className="text-xs font-mono font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                            Section 1: Core Service Configurator
+                          </h4>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Lucide Icon Name</label>
-                            <input 
-                              type="text"
-                              required
-                              placeholder="Calculator"
-                              value={newService.iconName}
-                              onChange={(e) => setNewService({ ...newService, iconName: e.target.value })}
-                              className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Short Summary Description</label>
-                        <input 
-                          type="text"
-                          required
-                          placeholder="Your high-level client-facing tagline description shown in listings."
-                          value={newService.shortDesc}
-                          onChange={(e) => setNewService({ ...newService, shortDesc: e.target.value })}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Extended Overall Description</label>
-                        <textarea 
-                          rows={2}
-                          placeholder="Provide the comprehensive service overview shown when selected in details."
-                          value={newService.overallDescription}
-                          onChange={(e) => setNewService({ ...newService, overallDescription: e.target.value })}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                        />
-                      </div>
-
-                      <div className="flex justify-end space-x-2 pt-2 border-t border-white/5">
-                        <button 
-                          type="button" 
-                          onClick={() => setIsAddingService(false)}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300"
-                        >
-                          Cancel
-                        </button>
-                        <button 
-                          type="submit" 
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-bold text-white shadow"
-                        >
-                          Save Service
-                        </button>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
-
-                {/* Services Grid and Nested Portfolios */}
-                <div className="space-y-6">
-                  {services.map((srv) => (
-                    <div 
-                      key={srv.id}
-                      className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden p-6 space-y-6"
-                    >
-                      {/* Service header metadata */}
-                      <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 pb-4 border-b border-white/5">
-                        <div className="flex items-start space-x-3.5">
-                          <div 
-                            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md text-xs font-mono shrink-0"
-                            style={{ backgroundColor: srv.accentColor }}
-                          >
-                            {srv.name.substring(0,2).toUpperCase()}
-                          </div>
-                          <div>
-                            <h4 className="text-base font-sans font-bold text-white">{srv.name}</h4>
-                            <p className="text-xs text-slate-400 leading-normal font-sans mt-1 max-w-2xl">{srv.shortDesc}</p>
-                            <span className="inline-block text-[9px] font-mono font-bold uppercase text-indigo-400 bg-indigo-950/50 border border-indigo-500/15 rounded-md px-2 py-0.5 mt-2">
-                              HEX Accent: {srv.accentColor}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Inline button to add portfolio to this specific service */}
-                        {activeServiceForPortfolio !== srv.id && (
-                          <button
-                            onClick={() => setActiveServiceForPortfolio(srv.id)}
-                            className="sm:self-center px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white font-bold rounded-lg text-xs transition-all flex items-center space-x-1 border border-white/5 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Case Study</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Nested add portfolio form */}
-                      <AnimatePresence>
-                        {activeServiceForPortfolio === srv.id && (
-                          <motion.form
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            onSubmit={(e) => handleAddPortfolio(e, srv.id)}
-                            className="bg-slate-950/40 border border-white/10 rounded-xl p-5 space-y-4 overflow-hidden"
-                          >
-                            <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400">
-                                Create Portfolio Case Study for {srv.name}
-                              </span>
-                              <button 
-                                type="button" 
-                                onClick={() => setActiveServiceForPortfolio(null)}
-                                className="text-slate-400 hover:text-white"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Service Title</label>
+                              <input
+                                type="text"
+                                value={editingService.name || ''}
+                                onChange={(e) => handleUpdateEditingField({ name: e.target.value })}
+                                className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                                placeholder="e.g. Web Development Services"
+                              />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Case Study Title</label>
-                                <input 
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Service Tagline / Short Summary</label>
+                              <input
+                                type="text"
+                                value={editingService.shortDesc || ''}
+                                onChange={(e) => handleUpdateEditingField({ shortDesc: e.target.value })}
+                                className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                                placeholder="e.g. Crafting hyper-intuitive and responsive custom web app portals."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Extended Service Overview</label>
+                            <textarea
+                              rows={3}
+                              value={editingService.overallDescription || ''}
+                              onChange={(e) => handleUpdateEditingField({ overallDescription: e.target.value })}
+                              className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                              placeholder="Deep-dive description explaining your approach, tools, and the results clients can expect..."
+                            />
+                          </div>
+
+                          {/* Visual Asset Picker */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono font-bold uppercase text-slate-400 block">Visual Asset Picker</label>
+                            <div className="grid grid-cols-3 gap-3">
+                              {REAL_IMAGE_ASSETS.map((asset) => {
+                                const isSelected = editingService.imageAsset === asset.url;
+                                return (
+                                  <div
+                                    key={asset.id}
+                                    onClick={() => handleUpdateEditingField({ imageAsset: asset.url })}
+                                    className={`group cursor-pointer rounded-xl overflow-hidden border transition-all duration-200 relative aspect-video bg-slate-950 ${
+                                      isSelected
+                                        ? 'border-indigo-500 shadow-lg shadow-indigo-500/10'
+                                        : 'border-white/5 hover:border-white/10'
+                                    }`}
+                                  >
+                                    <img
+                                      src={asset.url}
+                                      alt={asset.title}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <div className={`absolute inset-0 bg-indigo-950/40 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'}`} />
+                                    
+                                    {/* Checkmark overlay */}
+                                    {isSelected && (
+                                      <div className="absolute top-1.5 right-1.5 bg-indigo-600 text-white p-1 rounded-full shadow-md">
+                                        <Check className="w-3 h-3" />
+                                      </div>
+                                    )}
+                                    
+                                    <div className="absolute bottom-1 left-2 right-2 truncate">
+                                      <span className="text-[9px] font-sans font-medium text-white drop-shadow-md">
+                                        {asset.title}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Color Accent Picker */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono font-bold uppercase text-slate-400 block">Color Accent Picker</label>
+                            <div className="flex items-center gap-3.5 flex-wrap bg-slate-950/50 p-3 rounded-xl border border-white/5">
+                              <div className="flex items-center gap-2">
+                                {ACCENT_COLORS.map((color) => {
+                                  const isSelected = editingService.accentColor === color.value;
+                                  return (
+                                    <button
+                                      key={color.name}
+                                      type="button"
+                                      onClick={() => handleUpdateEditingField({ accentColor: color.value, tailwindColor: color.tw })}
+                                      className="w-7 h-7 rounded-full border transition-all relative flex items-center justify-center cursor-pointer hover:scale-110"
+                                      style={{
+                                        backgroundColor: color.value,
+                                        borderColor: isSelected ? '#ffffff' : 'transparent',
+                                        boxShadow: isSelected ? `0 0 10px ${color.value}` : 'none'
+                                      }}
+                                      title={color.name}
+                                    >
+                                      {isSelected && (
+                                        <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              
+                              <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Custom HEX:</span>
+                                <input
                                   type="text"
-                                  required
-                                  placeholder="e.g. 3-Year QuickBooks Cleanup"
-                                  value={newPortfolio.title}
-                                  onChange={(e) => setNewPortfolio({ ...newPortfolio, title: e.target.value })}
+                                  value={editingService.accentColor || ''}
+                                  onChange={(e) => handleUpdateEditingField({ accentColor: e.target.value })}
+                                  className="w-24 bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                                  placeholder="#4f46e5"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 2: Nested Portfolio Manager */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                          <h4 className="text-xs font-mono font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                            Section 2: Nested Portfolio Manager for "{editingService.name}"
+                          </h4>
+
+                          {/* Current Portfolio List */}
+                          <div className="space-y-2.5">
+                            <span className="text-[9px] font-mono font-bold uppercase text-slate-500 tracking-wider block">
+                              Current Case Studies ({editingService.portfolio?.length || 0})
+                            </span>
+                            
+                            {!editingService.portfolio || editingService.portfolio.length === 0 ? (
+                              <div className="text-xs font-mono text-slate-500 py-6 text-center bg-slate-950/20 rounded-xl border border-dashed border-white/5">
+                                No portfolio items added to this service category. Use form below to add.
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                {editingService.portfolio.map((port) => (
+                                  <motion.div
+                                    key={port.id}
+                                    layout
+                                    className="bg-slate-950/40 border border-white/5 rounded-xl p-3.5 relative flex space-x-3 group"
+                                  >
+                                    <div className="w-16 h-12 rounded overflow-hidden shrink-0 bg-slate-900 border border-white/5">
+                                      <img
+                                        src={port.thumbnailUrl}
+                                        alt={port.title}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0 pr-6">
+                                      <h5 className="text-xs font-sans font-bold text-white truncate">{port.title}</h5>
+                                      <p className="text-[10px] text-slate-400 truncate mt-0.5">{port.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {port.skills.slice(0, 2).map((sk, idx) => (
+                                          <span
+                                            key={idx}
+                                            className="text-[8px] font-mono bg-white/5 border border-white/5 rounded px-1 py-0.2 text-slate-300"
+                                          >
+                                            {sk}
+                                          </span>
+                                        ))}
+                                        {port.skills.length > 2 && (
+                                          <span className="text-[8px] font-mono bg-white/5 border border-white/5 rounded px-1 py-0.2 text-slate-400">
+                                            +{port.skills.length - 2}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Delete trash button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteQuickPortfolio(port.id)}
+                                      className="absolute top-2.5 right-2.5 p-1 bg-rose-950/40 hover:bg-rose-900 text-rose-400 hover:text-white rounded border border-rose-500/10 hover:border-rose-500/30 transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                      title="Delete portfolio item"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick Add Form */}
+                          <div className="bg-slate-950/60 border border-white/10 rounded-xl p-4.5 space-y-3.5">
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-indigo-400 block pb-1 border-b border-white/5">
+                              Quick Add Portfolio Project
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-mono font-bold uppercase text-slate-400">Portfolio Title</label>
+                                <input
+                                  type="text"
+                                  value={quickTitle}
+                                  onChange={(e) => setQuickTitle(e.target.value)}
                                   className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                                  placeholder="e.g. 3-Year QuickBooks Cleanup"
                                 />
                               </div>
 
                               <div className="space-y-1">
-                                <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Skills Tags (comma-separated)</label>
-                                <input 
+                                <label className="text-[9px] font-mono font-bold uppercase text-slate-400">Project Image Thumbnail URL</label>
+                                <input
                                   type="text"
-                                  placeholder="VBA Macros, Financial Modeling, Excel"
-                                  value={newPortfolio.skillsString}
-                                  onChange={(e) => setNewPortfolio({ ...newPortfolio, skillsString: e.target.value })}
+                                  value={quickImg}
+                                  onChange={(e) => setQuickImg(e.target.value)}
                                   className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                                  placeholder="Unsplash image URL"
                                 />
                               </div>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Short Description</label>
-                              <textarea 
+                              <label className="text-[9px] font-mono font-bold uppercase text-slate-400">Project Description</label>
+                              <textarea
                                 rows={2}
-                                required
-                                placeholder="Highlight problem statement, approach, and actual dollar/hour savings."
-                                value={newPortfolio.description}
-                                onChange={(e) => setNewPortfolio({ ...newPortfolio, description: e.target.value })}
+                                value={quickDesc}
+                                onChange={(e) => setQuickDesc(e.target.value)}
                                 className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                                placeholder="Briefly highlight what was achieved..."
                               />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Thumbnail Image Asset URL</label>
-                                <input 
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-mono font-bold uppercase text-slate-400 block">Skills / Tech Badges</label>
+                              <input
                                   type="text"
-                                  value={newPortfolio.thumbnailUrl}
-                                  onChange={(e) => setNewPortfolio({ ...newPortfolio, thumbnailUrl: e.target.value })}
+                                  value={skillInput}
+                                  onChange={(e) => setSkillInput(e.target.value)}
+                                  onKeyDown={handleSkillKeyDown}
                                   className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
-                                />
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-mono font-bold uppercase text-slate-400">Document Filename</label>
-                                <input 
-                                  type="text"
-                                  placeholder="Corporate_Financial_Statements_2025.pdf"
-                                  value={newPortfolio.mediaTitle}
-                                  onChange={(e) => setNewPortfolio({ ...newPortfolio, mediaTitle: e.target.value })}
-                                  className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
-                                />
-                              </div>
+                                  placeholder="Type a skill and press 'Enter' or ','"
+                              />
+                              
+                              {quickSkills.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1.5 bg-slate-950 p-2 rounded-lg border border-white/5">
+                                  {quickSkills.map((tag) => (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onClick={() => setQuickSkills(quickSkills.filter(t => t !== tag))}
+                                      className="bg-indigo-950/60 text-indigo-300 px-2.5 py-1 rounded-md text-[10px] font-mono border border-indigo-500/25 hover:bg-rose-950 hover:text-rose-300 hover:border-rose-500/25 flex items-center gap-1.5 group transition-all"
+                                      title="Click to remove"
+                                    >
+                                      <span>{tag}</span>
+                                      <span className="text-indigo-400 group-hover:text-rose-400 font-bold">×</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
-                            <div className="flex justify-end space-x-2 pt-2 border-t border-white/5">
-                              <button 
-                                type="button" 
-                                onClick={() => setActiveServiceForPortfolio(null)}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300"
+                            <div className="pt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={handleAddQuickPortfolio}
+                                disabled={!quickTitle.trim() || !quickDesc.trim()}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow cursor-pointer"
                               >
-                                Cancel
-                              </button>
-                              <button 
-                                type="submit" 
-                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-bold text-white"
-                              >
-                                Add Case
+                                Add Project to Service
                               </button>
                             </div>
-                          </motion.form>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Display Portfolio items */}
-                      <div className="space-y-3">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block pl-1">
-                          Current Active Case Studies ({srv.portfolio?.length || 0})
-                        </span>
-
-                        {!srv.portfolio || srv.portfolio.length === 0 ? (
-                          <div className="text-xs font-mono text-slate-500 py-4 text-center bg-slate-950/20 rounded-xl border border-white/5">
-                            No detailed case studies linked to this service category yet.
                           </div>
-                        ) : (
-                          <div className="overflow-hidden border border-white/5 rounded-xl bg-slate-950/20">
-                            <table className="w-full text-left text-xs">
-                              <thead>
-                                <tr className="bg-slate-900 border-b border-white/5 text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">
-                                  <th className="p-3">Thumbnail</th>
-                                  <th className="p-3">Case Title</th>
-                                  <th className="p-3">Associated Skills</th>
-                                  <th className="p-3">Summary Description</th>
-                                  <th className="p-3 text-right">Delete</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-white/5 font-mono text-slate-300 text-[11px]">
-                                {srv.portfolio.map((port) => (
-                                  <tr key={port.id} className="hover:bg-white/2 transition-colors">
-                                    <td className="p-3">
-                                      <img 
-                                        src={port.thumbnailUrl} 
-                                        alt={port.title}
-                                        className="w-10 h-7 rounded object-cover border border-white/10"
-                                        referrerPolicy="no-referrer"
-                                      />
-                                    </td>
-                                    <td className="p-3 font-sans font-bold text-white">{port.title}</td>
-                                    <td className="p-3">
-                                      <div className="flex flex-wrap gap-1 max-w-xs">
-                                        {port.skills.map((sk, index) => (
-                                          <span 
-                                            key={index}
-                                            className="text-[9px] font-mono uppercase bg-slate-800 text-slate-400 border border-white/5 rounded-md px-1.5 py-0.5"
-                                          >
-                                            {sk}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </td>
-                                    <td className="p-3 font-sans max-w-sm truncate text-slate-400">
-                                      {port.description}
-                                    </td>
-                                    <td className="p-3 text-right">
-                                      <button
-                                        onClick={() => {
-                                          const updatedPort = srv.portfolio?.filter(p => p.id !== port.id) || [];
-                                          const updatedServices = services.map(s => s.id === srv.id ? { ...s, portfolio: updatedPort } : s);
-                                          onUpdateServices(updatedServices);
-                                        }}
-                                        className="p-1 hover:bg-rose-950 text-rose-400 hover:text-rose-300 rounded border border-transparent hover:border-rose-500/10 transition-all inline-flex items-center justify-center"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                        </div>
+
+                        {/* Sticky Bottom anchored control bar */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-slate-950/85 backdrop-blur-md border-t border-white/10 p-4 flex justify-between items-center gap-4 rounded-b-2xl">
+                          <button
+                            type="button"
+                            onClick={handleDiscardChanges}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 border border-white/5 cursor-pointer transition-all"
+                          >
+                            Discard Changes
+                          </button>
+                          
+                          <div className="flex items-center gap-3">
+                            {saveSuccess && (
+                              <motion.span
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className="text-[11px] font-mono font-bold text-emerald-400"
+                              >
+                                ✓ Published to live site!
+                              </motion.span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleSaveAndPublish}
+                              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white font-extrabold rounded-xl text-xs transition-all shadow-lg shadow-indigo-500/10 cursor-pointer"
+                            >
+                              Save & Publish to Live Site
+                            </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-12 flex-1 my-auto">
+                      <Sparkles className="w-10 h-10 text-slate-600 animate-pulse mb-3" />
+                      <h4 className="text-sm font-sans font-bold text-slate-400">No Service Block Selected</h4>
+                      <p className="text-xs text-slate-500 max-w-xs mt-1.5">
+                        Select an active service card on the left panel or click 'Create New Service Block' to configure content.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}

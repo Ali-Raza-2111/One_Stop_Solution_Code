@@ -29,6 +29,7 @@ export interface Service {
   iconName: string;
   subServices: SubService[];
   portfolio?: PortfolioItem[];
+  imageAsset?: string;
 }
 
 export interface Enquiry {

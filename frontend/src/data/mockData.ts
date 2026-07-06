@@ -121,6 +121,86 @@ export const SERVICES: Service[] = [
     ]
   },
   {
+    id: "catchup",
+    name: "Catch-Up Bookkeeping",
+    accentColor: "#0ea5e9",
+    textColor: "#ffffff",
+    tailwindColor: "sky",
+    shortDesc: "Expert backlog cleanup to bring your historical books up to date.",
+    overallDescription: "Get your back-taxes and books up-to-date with complete ease. Our specialized catch-up bookkeeping services reconcile multi-year transaction backlogs, duplicate invoices, and un-categorized bank feeds. We organize historical data into complete, compliant balance sheets and profit & loss statements so you can file taxes confidently.",
+    iconName: "BookOpen",
+    subServices: [
+      {
+        id: "cu-1",
+        name: "Historical Reconciliation",
+        accentColor: "#0ea5e9",
+        textColor: "#ffffff",
+        tailwindColor: "sky",
+        description: "Meticulous bank statement and credit card feed matching across multiple fiscal periods."
+      },
+      {
+        id: "cu-2",
+        name: "Back-Tax Audit Prep",
+        accentColor: "#2563eb",
+        textColor: "#ffffff",
+        tailwindColor: "blue",
+        description: "Organizing complex Shopify, Stripe, or bank statements for compliant tax filings."
+      }
+    ],
+    portfolio: [
+      {
+        id: "p-cu-1",
+        title: "3-Year QuickBooks Online Account Cleanup",
+        skills: ["QuickBooks Online", "Bank Feeds", "Historical Reconciliation", "Chart of Accounts"],
+        description: "Reconciled 36 months of un-categorized transactions, bank feeds, and duplicate accounts for a fast-growing Shopify seller, ensuring flawless back-tax filing.",
+        mediaType: "pdf",
+        mediaUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800",
+        mediaTitle: "QBO_Cleanup_Case_Study.pdf",
+        thumbnailUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400"
+      }
+    ]
+  },
+  {
+    id: "tax",
+    name: "Tax Services",
+    accentColor: "#10b981",
+    textColor: "#ffffff",
+    tailwindColor: "emerald",
+    shortDesc: "Year-round expert support to maximize tax savings and maintain compliance.",
+    overallDescription: "Professional, forward-looking tax solutions designed to minimize your liabilities and maximize deductions. Our certified advisors handle annual returns, state franchise filings, sales tax automation, and quarterly estimations with institutional precision.",
+    iconName: "Calculator",
+    subServices: [
+      {
+        id: "tx-1",
+        name: "Corporate Tax Preparation",
+        accentColor: "#10b981",
+        textColor: "#ffffff",
+        tailwindColor: "emerald",
+        description: "Complete federal and state tax preparation, ensuring optimized deductions and zero compliance errors."
+      },
+      {
+        id: "tx-2",
+        name: "Strategic Tax Advisory",
+        accentColor: "#059669",
+        textColor: "#ffffff",
+        tailwindColor: "green",
+        description: "Year-round consultation to structure transactions, optimize credits, and defer liabilities."
+      }
+    ],
+    portfolio: [
+      {
+        id: "p-tx-1",
+        title: "End-of-Year Corporate Financial Reporting & Tax Readiness",
+        skills: ["Financial Statements", "Balance Sheets", "Tax Readiness", "GAAP Compliance"],
+        description: "Successfully prepared comprehensive year-end balance sheets, income statements, and cash flow statements, resolving a $45k accounts discrepancy to prepare for corporate tax filing.",
+        mediaType: "pdf",
+        mediaUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800",
+        mediaTitle: "Corporate_Financial_Statements_2025.pdf",
+        thumbnailUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400"
+      }
+    ]
+  },
+  {
     id: "msoffice",
     name: "MS Office Automation",
     accentColor: "#2563eb",
