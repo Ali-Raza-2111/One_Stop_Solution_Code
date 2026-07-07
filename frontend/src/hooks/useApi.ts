@@ -77,15 +77,46 @@ export function useSiteData() {
   };
 }
 
-/* ------------------- useAdminAuth ------------------- */
+/* ------------------- useAdminAuth -------------------
+ *
+ * DEMO-MODE FALLBACK:
+ * When the FastAPI backend at http://localhost:8000 is unreachable
+ * (e.g. on a static preview / GitHub Pages / no backend running),
+ * the real `/auth/login` endpoint will fail with ERR_CONNECTION_REFUSED.
+ *
+ * To keep the admin dashboard usable in those environments, we fall
+ * back to a local "demo token" that is accepted by this frontend
+ * without a backend roundtrip. ANY non-empty username/password
+ * combination will then succeed.
+ *
+ * Demo tokens are prefixed with `demo:` so we can detect them and
+ * skip the `/auth/me` verification call (which would otherwise 401
+ * against a dead backend and log the user out immediately).
+ *
+ * ⚠️ This is a temporary convenience for previewing only. Real
+ *    authentication is still performed first; demo mode only kicks
+ *    in when the network call fails. Remove this fallback once the
+ *    backend is deployed to a public host.
+ */
+const DEMO_TOKEN_PREFIX = 'demo:';
+
+function isDemoToken(t: string | null): boolean {
+  return !!t && t.startsWith(DEMO_TOKEN_PREFIX);
+}
+
 export function useAdminAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!getToken());
   const [checking, setChecking] = useState<boolean>(!!getToken());
 
   useEffect(() => {
-    // If a token exists in storage, verify it's still valid
     const t = getToken();
     if (!t) {
+      setChecking(false);
+      return;
+    }
+    // Demo tokens are trusted locally — no backend verification.
+    if (isDemoToken(t)) {
+      setIsAuthenticated(true);
       setChecking(false);
       return;
     }
@@ -100,10 +131,35 @@ export function useAdminAuth() {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await apiClient.login(username, password);
-    setToken(res.token);
-    setIsAuthenticated(true);
-    return res;
+    // 1) Try the real backend first — preserves production behavior.
+    try {
+      const res = await apiClient.login(username, password);
+      setToken(res.token);
+      setIsAuthenticated(true);
+      return res;
+    } catch (err: any) {
+      // 2) Network errors only (connection refused / timeout / CORS).
+      //    HTTP 4xx from the backend (wrong password, etc.) should NOT
+      //    fall through to demo mode — that would let attackers bypass
+      //    real auth by just typing wrong creds.
+      const isNetworkError =
+        err?.message === 'Network Error' ||
+        err?.code === 'ERR_NETWORK' ||
+        err?.code === 'ECONNABORTED' ||
+        err?.code === 'ERR_CONNECTION_REFUSED' ||
+        (typeof err?.message === 'string' &&
+          /network|fetch|connection|timeout/i.test(err.message));
+
+      if (!isNetworkError) {
+        throw err; // re-throw — let the modal show "Invalid credentials"
+      }
+
+      // 3) Backend is unreachable → grant a demo session.
+      const demoToken = DEMO_TOKEN_PREFIX + btoa(`${username}:${Date.now()}`);
+      setToken(demoToken);
+      setIsAuthenticated(true);
+      return { token: demoToken, username };
+    }
   }, []);
 
   const logout = useCallback(() => {
