@@ -13,6 +13,7 @@ def get_current_admin(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> AdminUser:
+    """Strict admin auth: raises 401 if no creds / invalid token / inactive user."""
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     username = decode_access_token(creds.credentials)
@@ -21,6 +22,28 @@ def get_current_admin(
     user = db.query(AdminUser).filter(AdminUser.username == username).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    return user
+
+
+def get_optional_admin(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> AdminUser | None:
+    """Lenient admin auth: returns None if no creds / invalid token / inactive user.
+
+    Use this for endpoints that need BOTH a public mode AND an admin mode
+    on the same path (e.g. GET /ratings/?approved=true is public, but
+    ?approved=false requires admin). The route handler decides whether
+    to enforce admin based on the request.
+    """
+    if creds is None or creds.scheme.lower() != "bearer":
+        return None
+    username = decode_access_token(creds.credentials)
+    if not username:
+        return None
+    user = db.query(AdminUser).filter(AdminUser.username == username).first()
+    if not user or not user.is_active:
+        return None
     return user
 
 

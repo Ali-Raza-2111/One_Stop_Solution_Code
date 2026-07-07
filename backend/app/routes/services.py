@@ -13,7 +13,9 @@ from app.models.service import Service, PortfolioItem
 router = APIRouter(prefix="/services", tags=["Services"])
 
 
-# ---------- Reorder (MUST be before /{service_id} to avoid path-param capture) ----------
+# ---------- Reorder (MUST be registered BEFORE /{service_id} routes) ----------
+# Otherwise PUT /services/reorder is captured by PUT /services/{service_id}
+# with service_id="reorder", which fails int parsing → 422.
 @router.put("/reorder", dependencies=[Depends(require_admin)])
 def reorder_services(body: ReorderRequest, db: Session = Depends(get_db)):
     """Batch-update sort_order for many services at once.
@@ -76,6 +78,8 @@ def delete_service(service_id: int, db: Session = Depends(get_db)):
 
 
 # ---------- Sub-services ----------
+# NOTE: /sub-services/* paths don't collide with /{service_id} because the
+# leading literal "sub-services" can't parse as int. Same for /portfolio/*.
 @router.post("/{service_id}/sub-services", response_model=SubServiceResponse,
              status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 def add_sub_service(service_id: int, body: SubServiceCreate, db: Session = Depends(get_db)):
@@ -125,6 +129,3 @@ def update_portfolio_item(p_id: int, body: PortfolioItemUpdate, db: Session = De
 def delete_portfolio_item(p_id: int, db: Session = Depends(get_db)):
     if not service_service.delete_portfolio_item(db, p_id):
         raise HTTPException(status_code=404, detail="PortfolioItem not found")
-
-
-

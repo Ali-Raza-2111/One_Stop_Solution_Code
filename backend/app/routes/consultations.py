@@ -19,8 +19,8 @@ def list_consultations(db: Session = Depends(get_db)):
 def create_consultation(body: ConsultationCreate, db: Session = Depends(get_db)):
     """Public endpoint — visitors book consultations.
 
-    Returns 400 with a human-readable message when the requested slot
-    fails validation (past, too soon, too far, or double-booked).
+    Validates the slot (past date, double-booking, etc.) and returns 400
+    with a friendly message on rejection.
     """
     try:
         return consultation_service.create_consultation(db, body)

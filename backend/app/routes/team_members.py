@@ -11,11 +11,11 @@ from app.models.team_member import TeamMember
 router = APIRouter(prefix="/team", tags=["Team"])
 
 
+# IMPORTANT: /reorder is registered BEFORE /{team_id} so that the literal
+# path "/reorder" is not captured by the {team_id} path-parameter route.
 @router.put("/reorder", dependencies=[Depends(require_admin)])
 def reorder_team_members(body: ReorderRequest, db: Session = Depends(get_db)):
-    """Batch-update sort_order for many team members at once.
-    MUST be registered before /{team_id} to avoid path-param capture.
-    """
+    """Batch-update sort_order for many team members at once."""
     for it in body.items:
         t = db.query(TeamMember).filter(TeamMember.id == it.id).first()
         if t:
@@ -49,6 +49,3 @@ def update_team_member(team_id: int, body: TeamMemberUpdate, db: Session = Depen
 def delete_team_member(team_id: int, db: Session = Depends(get_db)):
     if not team_member_service.delete_team_member(db, team_id):
         raise HTTPException(status_code=404, detail="Team member not found")
-
-
-

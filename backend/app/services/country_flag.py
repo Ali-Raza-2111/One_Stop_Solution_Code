@@ -16,11 +16,12 @@ import re
 # ── Canonical country name → ISO alpha-2 ─────────────────────────────────
 # Curated to cover all countries appearing in the seed data + the most
 # common client countries for an accounting outsourcing business.
-# Keys here are already in their NORMALIZED form (lowercase, punctuation
-# collapsed to single space) so they match output of normalize_country().
-_COUNTRY_TO_CODE: dict[str, str] = {
+# Keys here are the raw, human-readable variants; we build a normalized
+# lookup index at module load so user input can match any of them after
+# normalize_country() collapses dots / hyphens / extra whitespace.
+_RAW_COUNTRY_TO_CODE: dict[str, str] = {
     # North America
-    "united states":      "us",  "usa": "us",  "u s a": "us",  "us": "us",
+    "united states":      "us",  "usa": "us",  "u.s.a.": "us",  "us": "us",
     "united states of america": "us",
     "canada":             "ca",
     "mexico":             "mx",
@@ -28,102 +29,133 @@ _COUNTRY_TO_CODE: dict[str, str] = {
     "brazil":             "br",  "argentina": "ar",  "chile": "cl",
     "colombia":           "co",  "peru": "pe",  "venezuela": "ve",
     # Europe
-    "united kingdom":     "gb",  "uk": "gb",  "u k": "gb",  "britain": "gb",
+    "united kingdom":     "gb",  "uk": "gb",  "u.k.": "gb",  "britain": "gb",
     "great britain":      "gb",  "england": "gb",  "scotland": "gb",  "wales": "gb",
-    "germany":            "de",  "de": "de",  # accept 'DE' as both code + name
-    "france":             "fr",  "fr": "fr",
-    "spain":              "es",  "es": "es",
-    "italy":              "it",  "it": "it",
-    "netherlands":        "nl",  "holland": "nl",  "nl": "nl",
-    "belgium":            "be",  "be": "be",
-    "switzerland":        "ch",  "ch": "ch",
-    "austria":            "at",  "at": "at",
-    "sweden":             "se",  "se": "se",
-    "norway":             "no",  "no": "no",
-    "denmark":            "dk",  "dk": "dk",
-    "finland":            "fi",  "fi": "fi",
-    "ireland":            "ie",  "ie": "ie",
-    "portugal":           "pt",  "pt": "pt",
-    "greece":             "gr",  "gr": "gr",
-    "poland":             "pl",  "pl": "pl",
-    "czech republic":     "cz",  "czechia": "cz",  "cz": "cz",
-    "romania":            "ro",  "ro": "ro",
-    "hungary":            "hu",  "hu": "hu",
-    "ukraine":            "ua",  "ua": "ua",
-    "russia":             "ru",  "ru": "ru",
+    "germany":            "de",
+    "france":             "fr",
+    "spain":              "es",
+    "italy":              "it",
+    "netherlands":        "nl",  "holland": "nl",
+    "belgium":            "be",
+    "switzerland":        "ch",
+    "austria":            "at",
+    "sweden":             "se",
+    "norway":             "no",
+    "denmark":            "dk",
+    "finland":            "fi",
+    "ireland":            "ie",
+    "portugal":           "pt",
+    "greece":             "gr",
+    "poland":             "pl",
+    "czech republic":     "cz",  "czechia": "cz",
+    "romania":            "ro",
+    "hungary":            "hu",
+    "ukraine":            "ua",
+    "russia":             "ru",
     # Middle East
-    "saudi arabia":       "sa",  "sa": "sa",
-    "united arab emirates": "ae",  "uae": "ae",  "u a e": "ae",  "ae": "ae",
-    "qatar":              "qa",  "qa": "qa",
-    "kuwait":             "kw",  "kw": "kw",
-    "bahrain":            "bh",  "bh": "bh",
-    "oman":               "om",  "om": "om",
-    "jordan":             "jo",  "jo": "jo",
-    "lebanon":            "lb",  "lb": "lb",
-    "israel":             "il",  "il": "il",
-    "iran":               "ir",  "ir": "ir",
-    "iraq":               "iq",  "iq": "iq",
-    "turkey":             "tr",  "türkiye": "tr",  "tr": "tr",
+    "saudi arabia":       "sa",
+    "united arab emirates": "ae",  "uae": "ae",  "u.a.e.": "ae",
+    "qatar":              "qa",
+    "kuwait":             "kw",
+    "bahrain":            "bh",
+    "oman":               "om",
+    "jordan":             "jo",
+    "lebanon":            "lb",
+    "israel":             "il",
+    "iran":               "ir",
+    "iraq":               "iq",
+    "turkey":             "tr",  "türkiye": "tr",
     # Asia
-    "pakistan":           "pk",  "pk": "pk",
-    "india":              "in",  "in": "in",
-    "bangladesh":         "bd",  "bd": "bd",
-    "sri lanka":          "lk",  "lk": "lk",
-    "nepal":              "np",  "np": "np",
-    "afghanistan":        "af",  "af": "af",
-    "china":              "cn",  "cn": "cn",
-    "hong kong":          "hk",  "hk": "hk",
-    "taiwan":             "tw",  "tw": "tw",
-    "japan":              "jp",  "jp": "jp",
-    "south korea":        "kr",  "korea": "kr",  "republic of korea": "kr",  "kr": "kr",
-    "singapore":          "sg",  "sg": "sg",
-    "malaysia":           "my",  "my": "my",
-    "indonesia":          "id",  "id": "id",
-    "philippines":        "ph",  "ph": "ph",
-    "thailand":           "th",  "th": "th",
-    "vietnam":            "vn",  "vn": "vn",
+    "pakistan":           "pk",
+    "india":              "in",
+    "bangladesh":         "bd",
+    "sri lanka":          "lk",
+    "nepal":              "np",
+    "afghanistan":        "af",
+    "china":              "cn",
+    "hong kong":          "hk",
+    "taiwan":             "tw",
+    "japan":              "jp",
+    "south korea":        "kr",  "korea": "kr",  "republic of korea": "kr",
+    "singapore":          "sg",
+    "malaysia":           "my",
+    "indonesia":          "id",
+    "philippines":        "ph",
+    "thailand":           "th",
+    "vietnam":            "vn",
     # Oceania
-    "australia":          "au",  "au": "au",
-    "new zealand":        "nz",  "nz": "nz",
+    "australia":          "au",
+    "new zealand":        "nz",
     # Africa
-    "south africa":       "za",  "za": "za",
-    "nigeria":            "ng",  "ng": "ng",
-    "kenya":              "ke",  "ke": "ke",
-    "egypt":              "eg",  "eg": "eg",
-    "morocco":            "ma",  "ma": "ma",
-    "ghana":              "gh",  "gh": "gh",
-    "ethiopia":           "et",  "et": "et",
-    "tanzania":           "tz",  "tz": "tz",
-    "uganda":             "ug",  "ug": "ug",
+    "south africa":       "za",
+    "nigeria":            "ng",
+    "kenya":              "ke",
+    "egypt":              "eg",
+    "morocco":            "ma",
+    "ghana":              "gh",
+    "ethiopia":           "et",
+    "tanzania":           "tz",
+    "uganda":             "ug",
 }
-
-# Reverse index: ISO code → first canonical name (for display)
-_CODE_TO_COUNTRY: dict[str, str] = {}
-for _name, _code in _COUNTRY_TO_CODE.items():
-    # Keep the longest (most descriptive) name for each code.
-    if _code not in _CODE_TO_COUNTRY or len(_name) > len(_CODE_TO_COUNTRY[_code]):
-        _CODE_TO_COUNTRY[_code] = _name
 
 
 def normalize_country(raw: str) -> str:
     """Normalize a country string for lookup: lowercase, strip, collapse punctuation.
 
-    Preserves Unicode letters (so 'Türkiye' stays 'türkiye', not 't rkiye').
-    Examples:
-      'United States'    → 'united states'
-      'U.S.A.'           → 'u s a' (then matched against 'u s a' alias)
-      '  united  states' → 'united states' (collapse extra spaces)
-      'Türkiye'          → 'türkiye'
+    "United States"     → "united states"
+    "U.S.A."            → "u s a"   (dots → single space)
+    "U.A.E."            → "u a e"
+    "Saudi  Arabia"     → "saudi arabia"  (collapse double spaces)
     """
     if not raw:
         return ""
     s = raw.strip().lower()
-    # Collapse any run of non-letter/non-digit (including dots, hyphens) to a single space.
-    # Use \\w with re.UNICODE so accented letters are preserved.
-    s = re.sub(r"[^\w]+", " ", s, flags=re.UNICODE).strip()
-    # Collapse underscores too (\\w includes underscore)
-    s = re.sub(r"_+", " ", s).strip()
+    # Collapse any run of non-alphanumeric to a single space.
+    s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+    # Also collapse multiple spaces to one (already handled by the regex,
+    # but keep this for safety).
+    s = re.sub(r"\s+", " ", s)
     return s
+
+
+# Build the normalized lookup index at import time. This means user input
+# like "U.S.A." (which normalizes to "u s a") will match the raw dict key
+# "u.s.a." (which also normalizes to "u s a").
+_COUNTRY_TO_CODE: dict[str, str] = {}
+for _name, _code in _RAW_COUNTRY_TO_CODE.items():
+    _norm = normalize_country(_name)
+    # First-write-wins on conflicts (the more canonical, longer names come
+    # first in the dict above, so they take precedence).
+    if _norm and _norm not in _COUNTRY_TO_CODE:
+        _COUNTRY_TO_CODE[_norm] = _code
+
+
+# Reverse index: ISO code → first canonical name (for display).
+# Iterate the raw dict so we keep the most descriptive raw spelling
+# (e.g. "united states" beats "us" for display).
+_CODE_TO_COUNTRY: dict[str, str] = {}
+for _name, _code in _RAW_COUNTRY_TO_CODE.items():
+    # Skip ultra-short aliases (like "us", "uk") for the reverse index —
+    # we'd rather show "United States" / "United Kingdom".
+    if len(_name) <= 3 and " " not in _name:
+        continue
+    if _code not in _CODE_TO_COUNTRY or len(_name) > len(_CODE_TO_COUNTRY[_code]):
+        _CODE_TO_COUNTRY[_code] = _name
+
+# Restore original-case display names (capitalized words) for the reverse index.
+_LOWERCASE_PARTICLES = {"of", "and", "the"}
+
+def _title_case(name: str) -> str:
+    """Capitalize each word, leaving common lowercase particles alone."""
+    out = []
+    for i, w in enumerate(name.split()):
+        if i > 0 and w in _LOWERCASE_PARTICLES:
+            out.append(w)
+        else:
+            out.append(w.capitalize())
+    return " ".join(out)
+
+_CODE_TO_COUNTRY = {code: _title_case(name) for code, name in _CODE_TO_COUNTRY.items()}
 
 
 def country_to_code(country: str) -> str | None:

@@ -2,6 +2,7 @@
 
 Imported by routes/seed.py (manual trigger) AND by main.py (auto-run on startup if empty).
 """
+import copy
 import json
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
@@ -325,6 +326,9 @@ def run_seed(db: Session, force: bool = False) -> dict:
     # 3. Services + nested sub-services + portfolio
     if db.query(Service).count() == 0:
         for sdata in DEFAULT_SERVICES:
+            # Deep-copy so the .pop() calls below don't mutate the module-level
+            # DEFAULT_SERVICES (which would break a second force-reseed).
+            sdata = copy.deepcopy(sdata)
             svc = Service(
                 slug=sdata["slug"], name=sdata["name"],
                 accent_color=sdata["accent_color"], text_color=sdata["text_color"],
@@ -363,6 +367,8 @@ def run_seed(db: Session, force: bool = False) -> dict:
     # 6. Team members
     if db.query(TeamMember).count() == 0:
         for tdata in DEFAULT_TEAM:
+            # Deep-copy to avoid mutating module-level data on force-reseed.
+            tdata = copy.deepcopy(tdata)
             specs = tdata.pop("specialties", [])
             db.add(TeamMember(specialties=json.dumps(specs, ensure_ascii=False), **tdata))
         created["team_members"] = len(DEFAULT_TEAM)

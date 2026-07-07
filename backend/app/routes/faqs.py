@@ -10,11 +10,10 @@ from app.services import faq_service
 router = APIRouter(prefix="/faqs", tags=["FAQs"])
 
 
+# IMPORTANT: /reorder is registered BEFORE /{faq_id} so that the literal
+# path "/reorder" is not captured by the {faq_id} path-parameter route.
 @router.put("/reorder", dependencies=[Depends(require_admin)])
 def reorder_faqs(body: ReorderRequest, db: Session = Depends(get_db)):
-    """Batch-update sort_order for many FAQs at once.
-    MUST be registered before /{faq_id} to avoid path-param capture.
-    """
     faq_service.reorder_faqs(db, [it.model_dump() for it in body.items])
     return {"ok": True, "count": len(body.items)}
 
@@ -37,9 +36,6 @@ def update_faq(faq_id: int, body: FAQUpdate, db: Session = Depends(get_db)):
     if not res:
         raise HTTPException(status_code=404, detail="FAQ not found")
     return res
-
-
-
 
 
 @router.delete("/{faq_id}", status_code=status.HTTP_204_NO_CONTENT,

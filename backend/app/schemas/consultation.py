@@ -7,6 +7,9 @@ class ConsultationCreate(BaseModel):
     country: str = ""
     selected_date_time: str
     timezone: str = ""
+    # NOTE: pkt_time is computed server-side and stored on the row.
+    # We accept (and ignore) a client-supplied pkt_time for backwards
+    # compatibility with the legacy frontend that used to send one.
     pkt_time: str = ""
 
 
