@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import DocumentLightbox from './DocumentLightbox';
+import PortfolioGrid from './PortfolioGrid';
 
 interface ServicesSectionProps {
   selectedServiceId: string;
@@ -141,21 +142,24 @@ export default function ServicesSection({
                        (id === 'catch-up-bookkeeping') ? 'catchup' :
                        (id === 'tax-services') ? 'tax' : id;
 
-    // If servicesList is provided, search there first!
-    if (servicesList) {
-      const foundInList = servicesList.find(s => s.id === resolvedId);
+    // Treat empty array as "not provided" — fall back to SERVICES
+    const hasList = servicesList && servicesList.length > 0;
+
+    // If servicesList has data, search there first!
+    if (hasList) {
+      const foundInList = servicesList!.find(s => s.id === resolvedId);
       if (foundInList) return foundInList;
     }
 
-    if (resolvedId === 'catchup' && !servicesList) {
+    if (resolvedId === 'catchup' && !hasList) {
       return CATCHUP_SERVICE;
     }
-    if (resolvedId === 'tax' && !servicesList) {
+    if (resolvedId === 'tax' && !hasList) {
       return TAX_SERVICE;
     }
-    const found = (servicesList || SERVICES).find(s => s.id === resolvedId);
+    const found = (hasList ? servicesList! : SERVICES).find(s => s.id === resolvedId);
     if (found) {
-      if (resolvedId === 'bookkeeping' && !servicesList) {
+      if (resolvedId === 'bookkeeping' && !hasList) {
         return {
           ...found,
           id: 'bookkeeping',
@@ -166,13 +170,29 @@ export default function ServicesSection({
       return found;
     }
     
-    // Fallback: bookkeeping
-    const bk = (servicesList || SERVICES).find(s => s.id === 'bookkeeping') || (servicesList || SERVICES)[0];
+    // Fallback: bookkeeping (or first available)
+    const pool = hasList ? servicesList! : SERVICES;
+    const bk = pool.find(s => s.id === 'bookkeeping') || pool[0] || SERVICES[0];
+    if (!bk) {
+      // Absolute last-resort fallback — should never reach here if SERVICES has data
+      return {
+        id: 'bookkeeping',
+        name: servicesData[0]?.heading || 'Bookkeeping',
+        shortDesc: servicesData[0]?.summary || '',
+        accentColor: '',
+        textColor: '',
+        tailwindColor: '',
+        slug: 'bookkeeping',
+        subServices: [],
+        overallDescription: '',
+        portfolio: [],
+      } as Service;
+    }
     return {
       ...bk,
       id: 'bookkeeping',
-      name: servicesList ? bk.name : servicesData[0].heading,
-      shortDesc: servicesList ? bk.shortDesc : servicesData[0].summary
+      name: hasList ? bk.name : servicesData[0].heading,
+      shortDesc: hasList ? bk.shortDesc : servicesData[0].summary
     };
   };
 
@@ -180,12 +200,14 @@ export default function ServicesSection({
     if (servicesList && servicesList.length > 0) {
       return servicesList[0];
     }
+    // Fall back to mock SERVICES data when API list is empty/missing
     const bk = SERVICES.find(s => s.id === 'bookkeeping') || SERVICES[0];
+    if (!bk) return null;
     return {
       ...bk,
       id: 'bookkeeping',
-      name: servicesData[0].heading,
-      shortDesc: servicesData[0].summary
+      name: servicesData[0]?.heading || bk.name,
+      shortDesc: servicesData[0]?.summary || bk.shortDesc
     };
   });
 
@@ -822,99 +844,46 @@ export default function ServicesSection({
 
                 {/* Nested Case Portfolio Section */}
                 <div className="border-t border-slate-200/50 pt-10">
-                  <div className="mb-8">
-                    <h4 className="text-[10px] font-bold font-mono uppercase tracking-wider text-indigo-600 mb-1">
-                      Verified Project Work & Case Deliverables
-                    </h4>
-                    <p className="text-xs text-slate-500 font-sans">
-                      Select any work sample below to inspect interactive sample reports, sheets, and documents directly in our live viewer.
-                    </p>
+                  <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                      <h4 className="text-[10px] font-bold font-mono uppercase tracking-wider text-indigo-600 mb-1">
+                        Verified Project Work & Case Deliverables
+                      </h4>
+                      <p className="text-xs text-slate-500 font-sans max-w-2xl">
+                        Real client deliverables — click any card to inspect the interactive sample report,
+                        sheet, or document directly in our live viewer.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-mono">
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-md font-bold uppercase">
+                        ✓ Verified
+                      </span>
+                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md font-bold uppercase">
+                        {mapToDetailedService(activeService).portfolio?.length || 0} Projects
+                      </span>
+                    </div>
                   </div>
 
                   {mapToDetailedService(activeService).portfolio && mapToDetailedService(activeService).portfolio.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {mapToDetailedService(activeService).portfolio.map((item, idx) => {
-                        const richItem = {
+                    <PortfolioGrid
+                      items={mapToDetailedService(activeService).portfolio!.map((item, idx) => {
+                        const richItem: PortfolioItem = {
                           id: `p-detail-${idx}`,
                           title: item.title,
                           description: item.description,
                           skills: item.skills,
-                          mediaType: 'image' as const,
+                          mediaType: 'image',
                           mediaUrl: item.mediaUrl,
                           thumbnailUrl: item.mediaUrl,
                           mediaTitle: `${item.title.replace(/\s+/g, '_')}.png`
                         };
-
-                        return (
-                          <motion.div
-                            key={idx}
-                            whileHover={{ y: -3 }}
-                            className="border border-white/40 rounded-2xl bg-white/35 overflow-hidden hover:shadow-lg transition-all duration-500 flex flex-col justify-between group backdrop-blur-md"
-                          >
-                            <div
-                              onClick={() => openPortfolioDetail(richItem)}
-                              className="relative aspect-video bg-slate-100 overflow-hidden cursor-pointer"
-                            >
-                              <img
-                                src={richItem.thumbnailUrl}
-                                alt={richItem.title}
-                                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-mono text-xs font-bold backdrop-blur-xs">
-                                <span>Click to Open Inline Viewer ↗</span>
-                              </div>
-                              <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-mono uppercase font-bold">
-                                Image View
-                              </div>
-                            </div>
-
-                            <div className="p-5 flex-1 flex flex-col justify-between">
-                              <div>
-                                <h5
-                                  onClick={() => openPortfolioDetail(richItem)}
-                                  className="font-sans font-bold text-base text-slate-800 mb-2 cursor-pointer group-hover:text-indigo-600 transition-colors duration-500"
-                                >
-                                  {richItem.title}
-                                </h5>
-                                <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2">
-                                  {richItem.description}
-                                </p>
-                                <div className="flex flex-wrap gap-1.5 mb-4">
-                                  {richItem.skills.map((skill, sIdx) => (
-                                    <span
-                                      key={sIdx}
-                                      className="px-2 py-0.5 bg-white/45 text-[9px] font-bold font-mono text-slate-500 uppercase rounded-md border border-white/45 shadow-sm"
-                                    >
-                                      {skill}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="pt-4 border-t border-white/40 flex items-center gap-3">
-                                <button
-                                  onClick={() => openPortfolioDetail(richItem)}
-                                  className="flex-1 py-2 border border-white/50 hover:border-indigo-500 text-slate-500 hover:text-indigo-600 rounded-xl text-xs font-semibold transition-all duration-300 text-center flex items-center justify-center space-x-1 cursor-pointer bg-white/20 hover:bg-white/40"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  <span>View Deliverable</span>
-                                </button>
-                                <motion.button
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleOrderAndClose(mapToDetailedService(activeService).heading, richItem.title)}
-                                  className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-100 rounded-xl text-xs font-bold transition-all duration-300 text-center cursor-pointer shadow-sm"
-                                >
-                                  Order This Now
-                                </motion.button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
+                        return richItem;
                       })}
-                    </div>
+                      onViewDetail={(item) => openPortfolioDetail(item)}
+                      onOrderNow={(item) => handleOrderAndClose(mapToDetailedService(activeService).heading, item.title)}
+                    />
                   ) : (
-                    <div className="text-center py-12 bg-white/25 rounded-2xl border border-dashed border-white/45 backdrop-blur-md">
+                    <div className="text-center py-16 bg-white/40 rounded-2xl border border-dashed border-white/50 backdrop-blur-md">
                       <p className="text-sm text-slate-500">No portfolio cases uploaded for this section yet.</p>
                     </div>
                   )}

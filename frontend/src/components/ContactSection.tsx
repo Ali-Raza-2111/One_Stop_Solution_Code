@@ -10,6 +10,7 @@ import {
   MessageSquare, 
   AlertCircle 
 } from 'lucide-react';
+import ConsultationCalendar from './ConsultationCalendar';
 
 interface ContactSectionProps {
   preSelectedService: string;
@@ -688,37 +689,22 @@ export default function ContactSection({
                   />
                 </div>
 
-                {/* Time picker with details */}
-                <div className="p-4 bg-white/25 rounded-2xl border border-white/45 space-y-4 shadow-sm">
-                  <div>
-                    <label className="block text-[10px] font-bold font-mono text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center space-x-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Pick Date & Time (Your Local) *</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={selectedDateTime}
-                      onChange={e => setSelectedDateTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white/45 border border-white/45 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/35"
-                    />
-                  </div>
-
-                  {/* Dual timezone side-by-side indicator */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-white/20 text-xs">
-                    <div>
-                      <span className="text-slate-500 font-sans block mb-1">Detected Timezone:</span>
-                      <span className="font-mono text-[11px] font-bold text-slate-800 block truncate">
-                        {visitorTimeZone}
-                      </span>
+                {/* Premium consultation calendar widget */}
+                <div className="space-y-3">
+                  <ConsultationCalendar
+                    visitorTimeZone={visitorTimeZone}
+                    value={selectedDateTime}
+                    onChange={(iso) => {
+                      setSelectedDateTime(iso);
+                      setBookingError('');
+                    }}
+                  />
+                  {bookingError && (
+                    <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-sans">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{bookingError}</span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-sans block mb-1">Pakistan Standard Time (PKT):</span>
-                      <span className="font-mono text-[11px] font-bold text-emerald-600 block">
-                        {pktTimeStr ? pktTimeStr : 'Waiting for selection...'}
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <button

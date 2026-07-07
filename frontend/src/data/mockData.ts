@@ -1,4 +1,4 @@
-import { Service, ResourceItem } from '../types';
+import { Service, ResourceItem, Enquiry, Consultation, Rating, TeamMember } from '../types';
 
 export interface DetailedPortfolioItem {
   title: string;
@@ -391,3 +391,119 @@ export const RESOURCES: ResourceItem[] = [
     downloadCount: 189
   }
 ];
+
+/* ===================================================================
+ * MOCK TEAM MEMBERS — exported here so App.tsx and AdminDashboard can
+ * import from a single source of truth. (TeamSection.tsx still exports
+ * its own copy as INITIAL_TEAM_MEMBERS for backward compatibility, but
+ * this is the canonical seed list.)
+ * =================================================================== */
+export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
+  {
+    id: "member-1",
+    name: "Sophia Martinez, CPA",
+    role: "Lead Certified Accountant & QBO Pro",
+    bio: "Ex-KPMG consultant specializing in comprehensive GAAP auditing, forensic accounting, and complex catch-up bookkeeping reconstruction.",
+    avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
+    specialties: ["QuickBooks Pro", "Forensic Auditing", "Back-Tax Prep"],
+    isOnline: true,
+    email: "accounting@onestop.com"
+  },
+  {
+    id: "member-2",
+    name: "Marcus Sterling",
+    role: "Director of MS Office & Spreadsheet Automation",
+    bio: "VBA Architect who has automated cash flow models and corporate dashboards for over 80 small businesses, saving hundreds of operational hours.",
+    avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300",
+    specialties: ["VBA Macros", "Financial Projection Models", "Office Automation"],
+    isOnline: true,
+    email: "automation@onestop.com"
+  },
+  {
+    id: "member-3",
+    name: "Victoria Thorne",
+    role: "Senior Risk Auditor & Administrative Lead",
+    bio: "Certified internal control specialist managing security-vetted virtual support structures, operational audits, and corporate NDAs.",
+    avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
+    specialties: ["Internal Auditing", "Risk Assessment", "Corporate Administration"],
+    isOnline: true,
+    email: "audit@onestop.com"
+  }
+];
+
+/* ===================================================================
+ * MOCK ENQUIRIES — seeded so the admin Contacts tab shows realistic
+ * entries even when the backend is unreachable.
+ * =================================================================== */
+export const INITIAL_ENQUIRIES: Enquiry[] = [
+  {
+    id: 'q-1',
+    name: 'James C.',
+    contactMethod: 'email',
+    contactInfo: 'james@lumina.io',
+    subject: 'Custom Excel Macro Automation',
+    message: 'Hello, we are looking to integrate dynamic Shopify dashboards with an offline Excel workbook. Can we schedule a quick call to talk details?',
+    selectedService: 'MS Office Automation',
+    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+    isAnswered: false,
+    timezone: 'United States (EST)'
+  },
+  {
+    id: 'q-2',
+    name: 'Amina Shah',
+    contactMethod: 'whatsapp',
+    contactInfo: '+923009876543',
+    subject: 'Historical Catch-Up',
+    message: 'Hello, we have 2 years of bookkeeping backlog. Need cleanup urgently for our upcoming audit.',
+    selectedService: 'Catch-Up Bookkeeping',
+    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+    isAnswered: true,
+    timezone: 'Pakistan (PKT)'
+  }
+];
+
+/* ===================================================================
+ * MOCK CONSULTATIONS — seeded so the admin Contacts tab shows realistic
+ * booked consultations even when the backend is unreachable.
+ * =================================================================== */
+export const INITIAL_CONSULTATIONS: Consultation[] = [
+  {
+    id: 'c-1',
+    name: 'Marcus K.',
+    email: 'm.keller@apex.com',
+    country: 'Germany',
+    selectedDateTime: 'Jul 15, 2026, 3:30 PM (CEST)',
+    timezone: 'Europe/Berlin',
+    pktTime: '15-Jul-2026 6:30 PM (PKT)',
+    isAnswered: false,
+    timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
+  },
+  {
+    id: 'c-2',
+    name: 'Saira Malik',
+    email: 'saira@creativeagencies.com',
+    country: 'Pakistan',
+    selectedDateTime: 'Jul 18, 2026, 11:00 AM (PKT)',
+    timezone: 'Asia/Karachi',
+    pktTime: '18-Jul-2026 11:00 AM (PKT)',
+    isAnswered: true,
+    timestamp: new Date(Date.now() - 3600000 * 48).toISOString()
+  }
+];
+
+/* ===================================================================
+ * INITIAL_SITE_STATS — default counters shown on the public Records
+ * section. Used as a fallback when the backend returns zeros.
+ * =================================================================== */
+export const INITIAL_SITE_STATS = {
+  clients: 140,
+  orders: 380,
+  countries: 18,
+  label: ''
+};
+
+/* ===================================================================
+ * INITIAL_RATINGS — RATINGS mapped with isApproved: true so the public
+ * RatingsSection shows them immediately without needing admin approval.
+ * =================================================================== */
+export const INITIAL_RATINGS: Rating[] = RATINGS.map(r => ({ ...r, isApproved: true }));

@@ -1,6 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ComponentType } from 'react';
 import { Users, ClipboardList, Globe2, Award } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAnimatedNumber } from './admin/useAnimatedNumber';
+import CircularProgressRing from './ui/CircularProgressRing';
+import SectionHeading from './ui/SectionHeading';
 
 interface RecordSectionProps {
   initialClients?: number;
@@ -8,188 +12,163 @@ interface RecordSectionProps {
   initialCountries?: number;
 }
 
+interface StatCardProps {
+  icon: ComponentType<{ className?: string }>;
+  target: number;
+  max: number;
+  label: string;
+  sub: string;
+  suffix?: string;
+  displayValue: string;
+  ringColor: string;
+}
+
+function StatCard({
+  icon: Icon,
+  target,
+  max,
+  label,
+  sub,
+  suffix = '+',
+  displayValue,
+  ringColor,
+}: StatCardProps) {
+  // Ring value = fraction of max
+  const ringValue = max > 0 ? Math.min(1, target / max) : 0;
+
+  return (
+    <motion.div
+      whileHover={{ y: -6 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      className="glass-card p-4 sm:p-6 text-center hover:border-indigo-500/40 transition-all duration-500 hover:shadow-xl flex flex-col items-center justify-between glow-hover"
+    >
+      <div className="relative">
+        <CircularProgressRing
+          value={ringValue}
+          size={108}
+          strokeWidth={5}
+          color={ringColor}
+        >
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-white/60 rounded-xl flex items-center justify-center text-indigo-600 mb-1 shadow-sm">
+              <Icon className="w-4 h-4" />
+            </div>
+          </div>
+        </CircularProgressRing>
+      </div>
+
+      <div className="mt-3">
+        <div className="text-2xl sm:text-3xl lg:text-4xl font-sans font-extrabold text-slate-900 leading-none tracking-tight">
+          <span className="gradient-text">{displayValue}</span>
+          <span className="text-slate-900">{suffix}</span>
+        </div>
+        <h3 className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-600 leading-none mt-2">
+          {label}
+        </h3>
+        <p className="hidden sm:block text-[10px] text-slate-500 font-sans mt-1.5 leading-snug">
+          {sub}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function RecordSection({
   initialClients = 140,
   initialOrders = 380,
-  initialCountries = 18
+  initialCountries = 18,
 }: RecordSectionProps) {
-  const [clients, setClients] = useState(0);
-  const [orders, setOrders] = useState(0);
-  const [countries, setCountries] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
-  
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Sync state if props change after initial animation
-  useEffect(() => {
-    if (hasAnimated) {
-      setClients(initialClients);
-      setOrders(initialOrders);
-      setCountries(initialCountries);
-    }
-  }, [initialClients, initialOrders, initialCountries, hasAnimated]);
+  // Use AnimatedNumber hook for smooth tween (same as admin AnalyticsTab)
+  const clientsDisplay = useAnimatedNumber(hasAnimated ? initialClients : 0, 1600);
+  const ordersDisplay = useAnimatedNumber(hasAnimated ? initialOrders : 0, 1800);
+  const countriesDisplay = useAnimatedNumber(
+    hasAnimated ? initialCountries : 0,
+    1400,
+  );
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
+    const el = sectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting && !hasAnimated) {
+        if (entries[0].isIntersecting && !hasAnimated) {
           setHasAnimated(true);
-          
-          // Define targets
-          const targetClients = initialClients;
-          const targetOrders = initialOrders;
-          const targetCountries = initialCountries;
-
-          // Durations and step intervals
-          const duration = 1600; // 1.6 seconds animation
-          const steps = 40;
-          const stepTime = duration / steps;
-
-          let currentStep = 0;
-
-          const interval = setInterval(() => {
-            currentStep++;
-            
-            setClients(Math.floor((targetClients / steps) * currentStep));
-            setOrders(Math.floor((targetOrders / steps) * currentStep));
-            setCountries(Math.floor((targetCountries / steps) * currentStep));
-
-            if (currentStep >= steps) {
-              setClients(targetClients);
-              setOrders(targetOrders);
-              setCountries(targetCountries);
-              clearInterval(interval);
-            }
-          }, stepTime);
-
-          // Once triggered, stop observing
-          if (sectionRef.current) {
-            observer.unobserve(sectionRef.current);
-          }
+          obs.disconnect();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.2 },
     );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [hasAnimated]);
 
-  const fadeUpVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
-    }
-  };
+  const fmt = (n: number) => Math.round(n).toLocaleString();
 
   return (
     <motion.section
       ref={sectionRef}
       id="records"
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
-      variants={fadeUpVariants}
+      initial={{ opacity: 0, y: 15 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-100px' }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className="py-24 bg-transparent border-b border-white/20 relative overflow-hidden"
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 relative z-10">
-        
-        {/* Core title panel */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <p className="text-xs font-mono font-bold text-indigo-600 uppercase tracking-widest mb-2">Our Proven Record</p>
-          <h2 className="text-3xl sm:text-4xl font-sans font-extrabold tracking-tight text-slate-900 mb-4">
-            Reliable Remote Performance Scales
-          </h2>
-          <p className="text-sm text-slate-500 leading-relaxed font-sans">
-            We hold ourselves to transparent, meticulous standards. Over years of focused practice, we have supported international startups, founders, and private clinics with clean operations.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Our Proven Record"
+          title={
+            <>
+              Reliable Remote Performance{' '}
+              <span className="gradient-text">Scales</span>
+            </>
+          }
+          subtitle="We hold ourselves to transparent, meticulous standards. Over years of focused practice, we have supported international startups, founders, and private clinics with clean operations."
+        />
 
         {/* Counter Stats Grid */}
-        <div className="grid grid-cols-4 gap-2 sm:gap-6 lg:gap-8">
-          
-          {/* Card: Clients */}
-          <div className="glass-card p-2 sm:p-6 text-center hover:border-indigo-500/40 transition-all duration-500 hover:shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-50 border border-indigo-100 rounded-lg sm:rounded-xl flex items-center justify-center text-indigo-600 mx-auto mb-2 sm:mb-4 shadow-sm">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-sans font-extrabold text-slate-900 mb-0.5 sm:mb-1.5">
-                {clients}+
-              </div>
-              <h3 className="text-[8px] sm:text-[10px] font-mono font-bold uppercase tracking-tight sm:tracking-widest text-indigo-600 leading-none">
-                Clients
-              </h3>
-            </div>
-            <p className="hidden sm:block text-[10px] text-slate-500 font-sans mt-1">
-              Active long-term service relationships
-            </p>
-          </div>
-
-          {/* Card: Orders */}
-          <div className="glass-card p-2 sm:p-6 text-center hover:border-indigo-500/40 transition-all duration-500 hover:shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-50 border border-indigo-100 rounded-lg sm:rounded-xl flex items-center justify-center text-indigo-600 mx-auto mb-2 sm:mb-4 shadow-sm">
-                <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-sans font-extrabold text-slate-900 mb-0.5 sm:mb-1.5">
-                {orders}+
-              </div>
-              <h3 className="text-[8px] sm:text-[10px] font-mono font-bold uppercase tracking-tight sm:tracking-widest text-indigo-600 leading-none">
-                Contracts
-              </h3>
-            </div>
-            <p className="hidden sm:block text-[10px] text-slate-500 font-sans mt-1">
-              Individual assignments closed
-            </p>
-          </div>
-
-          {/* Card: Countries */}
-          <div className="glass-card p-2 sm:p-6 text-center hover:border-indigo-500/40 transition-all duration-500 hover:shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-50 border border-indigo-100 rounded-lg sm:rounded-xl flex items-center justify-center text-indigo-600 mx-auto mb-2 sm:mb-4 shadow-sm">
-                <Globe2 className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-sans font-extrabold text-slate-900 mb-0.5 sm:mb-1.5">
-                {countries}+
-              </div>
-              <h3 className="text-[8px] sm:text-[10px] font-mono font-bold uppercase tracking-tight sm:tracking-widest text-indigo-600 leading-none">
-                Countries
-              </h3>
-            </div>
-            <p className="hidden sm:block text-[10px] text-slate-500 font-sans mt-1">
-              Serving US, UK, Australia, Europe & UAE
-            </p>
-          </div>
-
-          {/* Card: Quality Rating */}
-          <div className="glass-card p-2 sm:p-6 text-center hover:border-indigo-500/40 transition-all duration-500 hover:shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-50 border border-indigo-100 rounded-lg sm:rounded-xl flex items-center justify-center text-indigo-600 mx-auto mb-2 sm:mb-4 shadow-sm">
-                <Award className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-sans font-extrabold text-slate-900 mb-0.5 sm:mb-1.5">
-                100%
-              </div>
-              <h3 className="text-[8px] sm:text-[10px] font-mono font-bold uppercase tracking-tight sm:tracking-widest text-indigo-600 leading-none">
-                Success
-              </h3>
-            </div>
-            <p className="hidden sm:block text-[10px] text-slate-500 font-sans mt-1">
-              Maintained across major platforms
-            </p>
-          </div>
-
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+          <StatCard
+            icon={Users}
+            target={initialClients}
+            max={200}
+            label="Clients"
+            sub="Active long-term service relationships"
+            displayValue={fmt(clientsDisplay)}
+            ringColor="url(#ringGradient)"
+          />
+          <StatCard
+            icon={ClipboardList}
+            target={initialOrders}
+            max={500}
+            label="Contracts"
+            sub="Individual assignments closed"
+            displayValue={fmt(ordersDisplay)}
+            ringColor="url(#ringGradient)"
+          />
+          <StatCard
+            icon={Globe2}
+            target={initialCountries}
+            max={30}
+            label="Countries"
+            sub="Serving US, UK, Australia, Europe & UAE"
+            displayValue={fmt(countriesDisplay)}
+            ringColor="url(#ringGradient)"
+          />
+          <StatCard
+            icon={Award}
+            target={100}
+            max={100}
+            label="Success"
+            sub="Maintained across major platforms"
+            suffix="%"
+            displayValue={fmt(clientsDisplay === 0 ? 0 : 100)}
+            ringColor="url(#ringGradient)"
+          />
         </div>
-
       </div>
     </motion.section>
   );

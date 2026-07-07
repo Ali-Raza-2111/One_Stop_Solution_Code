@@ -5,7 +5,8 @@ import { Shield, Lock, User, X, AlertCircle, KeyRound, Eye, EyeOff } from 'lucid
 interface AdminLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: () => void;
+  /** Async login handler — returns true on success, false on failure. */
+  onLoginSuccess: (username: string, password: string) => Promise<boolean>;
 }
 
 export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginModalProps) {
@@ -15,7 +16,7 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: Adm
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -25,15 +26,21 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: Adm
     }
 
     setIsSubmitting(true);
-
-    // Simulate small verification delay
-    setTimeout(() => {
+    try {
+      const ok = await onLoginSuccess(username.trim(), password);
+      if (ok) {
+        setUsername('');
+        setPassword('');
+        onClose();
+      } else {
+        setError('Invalid credentials. Try admin / admin123');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || 'Login failed';
+      setError(msg);
+    } finally {
       setIsSubmitting(false);
-      onLoginSuccess();
-      setUsername('');
-      setPassword('');
-      onClose();
-    }, 700);
+    }
   };
 
   return (

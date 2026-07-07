@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import AnalyticsTab from './admin/AnalyticsTab';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -33,43 +34,115 @@ import {
   ArrowLeft,
   Award,
   ExternalLink,
-  Lock
+  Lock,
+  Pencil,
+  Save,
+  XCircle
 } from 'lucide-react';
 import { Service, PortfolioItem, Enquiry, Consultation, Rating, TeamMember } from '../types';
+import { useAdminData } from '../hooks/useApi';
 
 interface AdminDashboardProps {
-  services: Service[];
-  ratings: Rating[];
-  enquiries: Enquiry[];
-  consultations: Consultation[];
-  stats: { clients: number; orders: number; countries: number };
-  onUpdateServices: (updated: Service[]) => void;
-  onUpdateRatings: (updated: Rating[]) => void;
-  onUpdateEnquiries: (updated: Enquiry[]) => void;
-  onUpdateConsultations: (updated: Consultation[]) => void;
-  onUpdateStats: (updated: { clients: number; orders: number; countries: number }) => void;
+  services?: Service[];
+  ratings?: Rating[];
+  enquiries?: Enquiry[];
+  consultations?: Consultation[];
+  stats?: { clients: number; orders: number; countries: number; label?: string };
+  onUpdateServices?: (updated: Service[]) => void;
+  onUpdateRatings?: (updated: Rating[]) => void;
+  onUpdateEnquiries?: (updated: Enquiry[]) => void;
+  onUpdateConsultations?: (updated: Consultation[]) => void;
+  onUpdateStats?: (updated: { clients: number; orders: number; countries: number; label?: string }) => void;
   onLogout: () => void;
-  teamMembers: TeamMember[];
-  onUpdateTeamMembers: (updated: TeamMember[]) => void;
+  teamMembers?: TeamMember[];
+  onUpdateTeamMembers?: (updated: TeamMember[]) => void;
 }
 
 type ActiveTab = 'analytics' | 'services' | 'reviews' | 'team' | 'contacts';
 
-export default function AdminDashboard({
-  services,
-  ratings,
-  enquiries,
-  consultations,
-  stats,
-  onUpdateServices,
-  onUpdateRatings,
-  onUpdateEnquiries,
-  onUpdateConsultations,
-  onUpdateStats,
-  onLogout,
-  teamMembers,
-  onUpdateTeamMembers
-}: AdminDashboardProps) {
+export default function AdminDashboard(props: AdminDashboardProps) {
+  const { onLogout } = props;
+
+  // ----- Backend-backed admin data -----
+  const admin = useAdminData();
+
+  // ----- Internal state mirrors so existing component code keeps working -----
+  // Initialize from props; App.tsx now seeds these with mock data so the
+  // admin dashboard is never empty even when the backend is down.
+  const [services, setServices] = useState<Service[]>(props.services || []);
+  const [ratings, setRatings] = useState<Rating[]>(props.ratings || []);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>(props.enquiries || []);
+  const [consultations, setConsultations] = useState<Consultation[]>(props.consultations || []);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(props.teamMembers || []);
+  const [stats, setStats] = useState<{ clients: number; orders: number; countries: number; label?: string }>(
+    props.stats && (props.stats.clients > 0 || props.stats.orders > 0 || props.stats.countries > 0)
+      ? props.stats
+      : { clients: 140, orders: 380, countries: 18, label: '' }
+  );
+
+  // Sync admin hook data → local state, but ONLY when the admin hook actually
+  // has data. When the backend is unreachable, useAdminData() returns empty
+  // arrays — we must NOT let those wipe the mock-seeded props passed from App.
+  useEffect(() => { if (admin.enquiries && admin.enquiries.length > 0) setEnquiries(admin.enquiries as any); }, [admin.enquiries]);
+  useEffect(() => { if (admin.consultations && admin.consultations.length > 0) setConsultations(admin.consultations as any); }, [admin.consultations]);
+  useEffect(() => { if (admin.allRatings && admin.allRatings.length > 0) setRatings(admin.allRatings as any); }, [admin.allRatings]);
+  // Keep services, teamMembers, ratings & stats in sync with parent prop changes
+  // (these props are the source of truth when the backend is down).
+  useEffect(() => { if (props.services && props.services.length > 0) setServices(props.services); }, [props.services]);
+  useEffect(() => { if (props.teamMembers && props.teamMembers.length > 0) setTeamMembers(props.teamMembers); }, [props.teamMembers]);
+  useEffect(() => { if (props.ratings && props.ratings.length > 0) setRatings(props.ratings); }, [props.ratings]);
+  useEffect(() => { if (props.enquiries && props.enquiries.length > 0) setEnquiries(props.enquiries); }, [props.enquiries]);
+  useEffect(() => { if (props.consultations && props.consultations.length > 0) setConsultations(props.consultations); }, [props.consultations]);
+  useEffect(() => { if (props.stats && (props.stats.clients > 0 || props.stats.orders > 0 || props.stats.countries > 0)) setStats(props.stats); }, [props.stats]);
+
+  // ----- Wire mutations: prefer API, fall back to parent callbacks -----
+  const handleUpdateEnquiries = (updated: Enquiry[]) => {
+    setEnquiries(updated);
+    props.onUpdateEnquiries?.(updated);
+  };
+  const handleUpdateConsultations = (updated: Consultation[]) => {
+    setConsultations(updated);
+    props.onUpdateConsultations?.(updated);
+  };
+  const handleUpdateRatings = (updated: Rating[]) => {
+    setRatings(updated);
+    props.onUpdateRatings?.(updated);
+  };
+  const handleUpdateServices = (updated: Service[]) => {
+    setServices(updated);
+    props.onUpdateServices?.(updated);
+  };
+  const handleUpdateTeamMembers = (updated: TeamMember[]) => {
+    setTeamMembers(updated);
+    props.onUpdateTeamMembers?.(updated);
+  };
+  const handleUpdateStats = (updated: { clients: number; orders: number; countries: number; label?: string }) => {
+    setStats(updated);
+    props.onUpdateStats?.(updated);
+    // Persist to backend (fire & forget — caller already optimistically updated UI)
+    admin.saveStats({ clients: updated.clients, orders: updated.orders, countries: updated.countries, label: updated.label }).catch(() => {});
+  };
+
+  // Helpers that route toggles / deletes through the API hook
+  const toggleEnquiryAnswered = (id: string, isAnswered: boolean) => {
+    admin.toggleEnquiryAnswered(id, isAnswered);
+  };
+  const deleteEnquiryById = (id: string) => {
+    admin.deleteEnquiry(id);
+  };
+  const toggleConsultationAnswered = (id: string, isAnswered: boolean) => {
+    admin.toggleConsultationAnswered(id, isAnswered);
+  };
+  const deleteConsultationById = (id: string) => {
+    admin.deleteConsultation(id);
+  };
+  const toggleRatingApproval = (id: string, isApproved: boolean) => {
+    admin.toggleRatingApproval(id, isApproved);
+  };
+  const deleteRatingById = (id: string) => {
+    admin.deleteRating(id);
+  };
+
   // 1. Sidebar tab view state
   const [activeTab, setActiveTab] = useState<ActiveTab>('analytics');
 
@@ -146,6 +219,14 @@ export default function AdminDashboard({
   const [portMediaUrl, setPortMediaUrl] = useState('https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=600');
   const [portMediaType, setPortMediaType] = useState<'image' | 'video' | 'pdf'>('image');
 
+  // Portfolio inline editing (NEW)
+  const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null);
+  const [editPortTitle, setEditPortTitle] = useState('');
+  const [editPortDesc, setEditPortDesc] = useState('');
+  const [editPortSkillsInput, setEditPortSkillsInput] = useState('');
+  const [editPortMediaUrl, setEditPortMediaUrl] = useState('');
+  const [editPortMediaType, setEditPortMediaType] = useState<'image' | 'video' | 'pdf'>('image');
+
   // ==========================================
   // VIEW C STATES & COMPARTMENTS (Ratings Hub)
   // ==========================================
@@ -159,6 +240,8 @@ export default function AdminDashboard({
     ratingStars: 5,
     avatarUrl: ''
   });
+  // NEW: track which review is being edited (null = create mode)
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   // Country Flag Code Map
   const flagMap: { [key: string]: string } = {
@@ -200,6 +283,8 @@ export default function AdminDashboard({
     isOnline: true
   });
   const [tempCertValue, setTempCertValue] = useState<{ [key: string]: string }>({});
+  // NEW: track which team member is being edited (null = create mode)
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
 
   // ==========================================
   // VIEW E STATES & COMPARTMENTS (Channels / Timezones)
@@ -213,6 +298,8 @@ export default function AdminDashboard({
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelType, setNewChannelType] = useState('LinkedIn');
   const [newChannelUrl, setNewChannelUrl] = useState('');
+  // NEW: track which channel index is being edited (-1 = create mode)
+  const [editingChannelIdx, setEditingChannelIdx] = useState<number>(-1);
 
   const [consultationEmail, setConsultationEmail] = useState('bookings@onestoponlineservices.com');
   const [isEmailForwardingActive, setIsEmailForwardingActive] = useState(true);
@@ -268,7 +355,7 @@ export default function AdminDashboard({
 
     // Update global state
     const updatedServices = services.map(s => s.id === serviceId ? { ...s, portfolio: portList } : s);
-    onUpdateServices(updatedServices);
+    handleUpdateServices(updatedServices);
   };
 
   // Testimonials/Reviews reordering
@@ -282,7 +369,7 @@ export default function AdminDashboard({
     list[reviewIndex] = list[targetIndex];
     list[targetIndex] = temp;
 
-    onUpdateRatings(list);
+    handleUpdateRatings(list);
   };
 
   // Team Members reordering
@@ -296,7 +383,7 @@ export default function AdminDashboard({
     list[memberIndex] = list[targetIndex];
     list[targetIndex] = temp;
 
-    onUpdateTeamMembers(list);
+    handleUpdateTeamMembers(list);
   };
 
   // Add certification dynamic tag handler
@@ -311,7 +398,7 @@ export default function AdminDashboard({
       }
       return m;
     });
-    onUpdateTeamMembers(updated);
+    handleUpdateTeamMembers(updated);
     setTempCertValue(prev => ({ ...prev, [memberId]: '' }));
   };
 
@@ -326,7 +413,7 @@ export default function AdminDashboard({
       }
       return m;
     });
-    onUpdateTeamMembers(updated);
+    handleUpdateTeamMembers(updated);
   };
 
   // Handle new service block submission
@@ -356,7 +443,7 @@ export default function AdminDashboard({
       portfolio: []
     };
 
-    onUpdateServices([...services, newBlock]);
+    handleUpdateServices([...services, newBlock]);
     setSelectedServiceId(newBlock.id);
     setNewServiceName('');
     setNewServiceDesc('');
@@ -389,7 +476,7 @@ export default function AdminDashboard({
       return s;
     });
 
-    onUpdateServices(updated);
+    handleUpdateServices(updated);
     setPortTitle('');
     setPortDesc('');
     setPortSkillsInput('');
@@ -398,7 +485,266 @@ export default function AdminDashboard({
 
   // Handle review deletion
   const handleDeleteRating = (id: string) => {
-    onUpdateRatings(ratings.filter(r => r.id !== id));
+    handleUpdateRatings(ratings.filter(r => r.id !== id));
+    // If we were editing this one, cancel
+    if (editingReviewId === id) {
+      setEditingReviewId(null);
+      setReviewFormOpen(false);
+    }
+  };
+
+  // NEW: Begin editing an existing review — pre-fills the same form
+  const handleEditReview = (rate: Rating) => {
+    setEditingReviewId(rate.id);
+    setReviewForm({
+      name: rate.name,
+      designation: rate.designation,
+      company: rate.company,
+      comment: rate.comment,
+      country: rate.country,
+      ratingStars: rate.ratingStars || 5,
+      avatarUrl: rate.avatarUrl
+    });
+    setReviewFormOpen(true);
+  };
+
+  // NEW: Save review (creates if editingReviewId is null, updates otherwise)
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm.name.trim() || !reviewForm.comment.trim()) return;
+
+    if (editingReviewId) {
+      // UPDATE existing
+      const updated = ratings.map(r => r.id === editingReviewId ? {
+        ...r,
+        name: reviewForm.name,
+        designation: reviewForm.designation || 'Client Leader',
+        company: reviewForm.company || 'Direct Agency',
+        comment: reviewForm.comment,
+        country: reviewForm.country,
+        ratingStars: reviewForm.ratingStars,
+        avatarUrl: reviewForm.avatarUrl
+      } : r);
+      handleUpdateRatings(updated);
+      setEditingReviewId(null);
+    } else {
+      // CREATE new
+      const created: Rating = {
+        id: `rate-${Date.now()}`,
+        serviceId: 'bookkeeping',
+        name: reviewForm.name,
+        designation: reviewForm.designation || 'Client Leader',
+        company: reviewForm.company || 'Direct Agency',
+        comment: reviewForm.comment,
+        country: reviewForm.country,
+        ratingStars: reviewForm.ratingStars,
+        isApproved: true,
+        avatarUrl: reviewForm.avatarUrl
+      };
+      handleUpdateRatings([created, ...ratings]);
+    }
+
+    setReviewForm({
+      name: '',
+      designation: '',
+      company: '',
+      comment: '',
+      country: 'United States',
+      ratingStars: 5,
+      avatarUrl: ''
+    });
+    setReviewFormOpen(false);
+  };
+
+  // NEW: Cancel review edit/create
+  const handleCancelReviewForm = () => {
+    setReviewFormOpen(false);
+    setEditingReviewId(null);
+    setReviewForm({
+      name: '',
+      designation: '',
+      company: '',
+      comment: '',
+      country: 'United States',
+      ratingStars: 5,
+      avatarUrl: ''
+    });
+  };
+
+  // NEW: Delete entire service block (with confirmation)
+  const handleDeleteService = (serviceId: string) => {
+    if (!window.confirm('Delete this entire service block? This will also remove all its portfolio items.')) return;
+    const updated = services.filter(s => s.id !== serviceId);
+    handleUpdateServices(updated);
+    // Reset selection if needed
+    if (selectedServiceId === serviceId) {
+      setSelectedServiceId(updated[0]?.id || 'new');
+      setIsCreatingNewService(false);
+    }
+  };
+
+  // NEW: Begin editing a portfolio item — pre-fills inline edit fields
+  const handleStartEditPortfolio = (item: PortfolioItem) => {
+    setEditingPortfolioId(item.id);
+    setEditPortTitle(item.title);
+    setEditPortDesc(item.description);
+    setEditPortSkillsInput(item.skills.join(', '));
+    setEditPortMediaUrl(item.mediaUrl);
+    setEditPortMediaType((item.mediaType as 'image' | 'video' | 'pdf') || 'image');
+  };
+
+  // NEW: Save portfolio edit
+  const handleSaveEditPortfolio = (e: React.FormEvent, serviceId: string, portfolioId: string) => {
+    e.preventDefault();
+    if (!editPortTitle.trim() || !editPortDesc.trim()) return;
+
+    const updated = services.map(s => {
+      if (s.id === serviceId && s.portfolio) {
+        return {
+          ...s,
+          portfolio: s.portfolio.map(p => p.id === portfolioId ? {
+            ...p,
+            title: editPortTitle,
+            description: editPortDesc,
+            skills: editPortSkillsInput.split(',').map(x => x.trim()).filter(Boolean),
+            mediaType: editPortMediaType,
+            mediaUrl: editPortMediaUrl,
+            thumbnailUrl: editPortMediaUrl
+          } : p)
+        };
+      }
+      return s;
+    });
+    handleUpdateServices(updated);
+    setEditingPortfolioId(null);
+  };
+
+  // NEW: Cancel portfolio edit
+  const handleCancelEditPortfolio = () => {
+    setEditingPortfolioId(null);
+  };
+
+  // NEW: Begin editing a team member — pre-fills the form, opens panel
+  const handleEditTeamMember = (member: TeamMember) => {
+    setEditingMemberId(member.id);
+    setEmployeeForm({
+      name: member.name,
+      role: member.role,
+      bio: member.bio,
+      avatarUrl: member.avatarUrl,
+      email: member.email,
+      specialtiesInput: member.specialties.join(', '),
+      isOnline: member.isOnline
+    });
+    setIsOnboardingEmployee(true);
+  };
+
+  // NEW: Save team member (creates or updates)
+  const handleSubmitTeamMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employeeForm.name.trim() || !employeeForm.role.trim()) return;
+
+    if (editingMemberId) {
+      // UPDATE existing member — preserve specialties if input empty
+      const updated = teamMembers.map(m => m.id === editingMemberId ? {
+        ...m,
+        name: employeeForm.name,
+        role: employeeForm.role,
+        bio: employeeForm.bio || 'Vetted consultant delivering secure corporate solutions.',
+        avatarUrl: employeeForm.avatarUrl,
+        email: employeeForm.email || 'consult@onestop.com',
+        specialties: employeeForm.specialtiesInput.trim()
+          ? employeeForm.specialtiesInput.split(',').map(s => s.trim()).filter(Boolean)
+          : m.specialties,
+        isOnline: employeeForm.isOnline
+      } : m);
+      handleUpdateTeamMembers(updated);
+      setEditingMemberId(null);
+    } else {
+      // CREATE new
+      const onboarded: TeamMember = {
+        id: `member-${Date.now()}`,
+        name: employeeForm.name,
+        role: employeeForm.role,
+        bio: employeeForm.bio || 'Vetted consultant delivering secure corporate solutions.',
+        avatarUrl: employeeForm.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
+        email: employeeForm.email || 'consult@onestop.com',
+        specialties: employeeForm.specialtiesInput.split(',').map(s => s.trim()).filter(Boolean),
+        isOnline: employeeForm.isOnline
+      };
+      handleUpdateTeamMembers([...teamMembers, onboarded]);
+    }
+
+    setEmployeeForm({
+      name: '',
+      role: '',
+      bio: '',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
+      email: '',
+      specialtiesInput: '',
+      isOnline: true
+    });
+    setIsOnboardingEmployee(false);
+  };
+
+  // NEW: Cancel team member edit/create
+  const handleCancelTeamMemberForm = () => {
+    setIsOnboardingEmployee(false);
+    setEditingMemberId(null);
+    setEmployeeForm({
+      name: '',
+      role: '',
+      bio: '',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
+      email: '',
+      specialtiesInput: '',
+      isOnline: true
+    });
+  };
+
+  // NEW: Begin editing a channel — pre-fills the form fields
+  const handleEditChannel = (idx: number) => {
+    const ch = channels[idx];
+    if (!ch) return;
+    setEditingChannelIdx(idx);
+    setNewChannelName(ch.name);
+    setNewChannelType(ch.type);
+    setNewChannelUrl(ch.url);
+  };
+
+  // NEW: Cancel channel edit/create
+  const handleCancelChannelForm = () => {
+    setEditingChannelIdx(-1);
+    setNewChannelName('');
+    setNewChannelType('LinkedIn');
+    setNewChannelUrl('');
+  };
+
+  // NEW: Submit channel (create or update)
+  const handleSubmitChannel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChannelName.trim() || !newChannelUrl.trim()) return;
+
+    if (editingChannelIdx >= 0) {
+      // UPDATE
+      const copy = [...channels];
+      copy[editingChannelIdx] = {
+        name: newChannelName,
+        type: newChannelType,
+        url: newChannelUrl
+      };
+      setChannels(copy);
+      setEditingChannelIdx(-1);
+    } else {
+      // CREATE
+      setChannels([...channels, {
+        name: newChannelName,
+        type: newChannelType,
+        url: newChannelUrl
+      }]);
+    }
+    setNewChannelName('');
+    setNewChannelUrl('');
   };
 
   // Add country visits log
@@ -560,7 +906,7 @@ export default function AdminDashboard({
       </aside>
 
       {/* Main Viewport Workspace Container */}
-      <main className="flex-1 overflow-y-auto p-10 relative z-10">
+      <main className="admin-scroll flex-1 overflow-y-auto p-10 relative z-10">
         
         {/* Main Workstation Header */}
         <header className="flex items-center justify-between mb-10 pb-6 border-b border-white/5">
@@ -613,389 +959,12 @@ export default function AdminDashboard({
             {/* VIEW A: DASHBOARD ANALYTICS (Command Center)                   */}
             {/* ============================================================== */}
             {activeTab === 'analytics' && (
-              <div className="space-y-8">
-                
-                {/* 1. Core counters summary matrix (Interactive) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    { key: 'clients', label: 'Satisfied Global Clients', value: stats.clients, color: 'from-indigo-500 to-indigo-600', max: 500 },
-                    { key: 'orders', label: 'Completed Deliverables', value: stats.orders, color: 'from-sky-500 to-sky-600', max: 1000 },
-                    { key: 'countries', label: 'Nations Represented', value: stats.countries, color: 'from-emerald-500 to-emerald-600', max: 50 }
-                  ].map(item => (
-                    <div 
-                      key={item.key}
-                      className="relative bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl overflow-hidden group"
-                    >
-                      <div className="absolute top-0 right-0 p-4 font-mono text-[9px] text-slate-600 font-bold tracking-widest uppercase">
-                        Override Active
-                      </div>
-                      <p className="text-xs font-bold text-slate-400 font-mono uppercase tracking-wider">{item.label}</p>
-                      
-                      {/* Counter values and adjustments */}
-                      <div className="flex items-baseline justify-between mt-4">
-                        <span className="text-4xl font-black text-white font-mono tracking-tight">
-                          {item.value}+
-                        </span>
-                        
-                        {/* Shifter actions to alter statistics on public landing page instantly */}
-                        <div className="flex space-x-1.5 bg-slate-950/80 p-1 rounded-xl border border-white/5">
-                          <button
-                            onClick={() => onUpdateStats({ ...stats, [item.key]: Math.max(0, item.value - 1) })}
-                            className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
-                            title="Decrement statistic"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => onUpdateStats({ ...stats, [item.key]: item.value + 1 })}
-                            className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
-                            title="Increment statistic"
-                          >
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Manual text input override */}
-                      <div className="mt-4 pt-4 border-t border-white/5 flex items-center space-x-2">
-                        <span className="text-[10px] text-slate-500 font-mono">Manual override:</span>
-                        <input
-                          type="number"
-                          value={item.value}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            onUpdateStats({ ...stats, [item.key]: val });
-                          }}
-                          className="w-16 bg-slate-950/80 border border-white/10 rounded-lg py-1 px-2 text-[10px] font-mono text-indigo-300 focus:outline-none focus:border-indigo-500 text-center"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 2. Side-By-Side: Country-wise visitor logs & SVG Pie Chart */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  
-                  {/* Country-wise visitor board */}
-                  <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
-                            <Globe2 className="w-4.5 h-4.5 text-indigo-400" />
-                            Country-Wise Client Visitor Board
-                          </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Simulated real-time remote telemetry logs.</p>
-                        </div>
-                        <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-md border border-indigo-500/10">
-                          Total Logged: {countryList.reduce((acc, c) => acc + c.visits, 0)} visits
-                        </span>
-                      </div>
-
-                      {/* Search Bar */}
-                      <div className="mb-4">
-                        <input
-                          type="text"
-                          placeholder="Search countries..."
-                          value={countrySearch}
-                          onChange={(e) => setCountrySearch(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-sans text-white focus:outline-none focus:border-indigo-500/60 placeholder-slate-600"
-                        />
-                      </div>
-
-                      {/* Country Data Grid Table */}
-                      <div className="max-h-56 overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-white/5 pr-1.5">
-                        {countryList
-                          .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
-                          .map((country, idx) => (
-                            <div 
-                              key={country.name}
-                              className="flex items-center justify-between p-2.5 bg-slate-950/45 hover:bg-slate-950 border border-white/5 rounded-xl transition-all text-xs font-mono"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className="text-base">{getCountryFlagEmoji(country.name)}</span>
-                                <span className="text-white font-sans font-bold">{country.name}</span>
-                                <span className="text-[10px] text-slate-500">({country.code})</span>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-indigo-400 font-bold">{country.visits} visits</span>
-                                
-                                {/* Micro adjustment buttons */}
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => {
-                                      const copy = [...countryList];
-                                      copy[idx].visits = Math.max(0, copy[idx].visits - 10);
-                                      setCountryList(copy);
-                                    }}
-                                    className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-colors"
-                                    title="Subtract 10 visits"
-                                  >
-                                    -10
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const copy = [...countryList];
-                                      copy[idx].visits += 10;
-                                      setCountryList(copy);
-                                    }}
-                                    className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-colors"
-                                    title="Add 10 visits"
-                                  >
-                                    +10
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* Quick Onboard New Country Log */}
-                    <form onSubmit={handleAddCountryVisits} className="mt-5 pt-4 border-t border-white/5 grid grid-cols-3 gap-3">
-                      <div className="col-span-2">
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. United Arab Emirates"
-                          value={newCountryName}
-                          onChange={(e) => setNewCountryName(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-sans text-white focus:outline-none focus:border-indigo-500/60 placeholder-slate-600"
-                        />
-                      </div>
-                      <div className="flex space-x-1.5">
-                        <input
-                          type="number"
-                          required
-                          value={newCountryVisits}
-                          onChange={(e) => setNewCountryVisits(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-2 py-2 text-xs text-center font-mono text-indigo-400 focus:outline-none focus:border-indigo-500/60"
-                        />
-                        <button
-                          type="submit"
-                          className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center justify-center"
-                          title="Register country visits"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  {/* Client Conversion Metric: Premium SVG Pie Chart */}
-                  <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
-                        <BarChart3 className="w-4.5 h-4.5 text-indigo-400" />
-                        Client Conversion Metric (The Conversion Pie Chart)
-                      </h3>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Strict mapping: <span className="text-blue-400 font-semibold">Solid Blue</span> for Email, <span className="text-green-400 font-semibold">Light Green</span> for WhatsApp, <span className="text-slate-400 font-semibold">Neutral Grey</span> for Alternative (Fiverr, Upwork, LinkedIn).
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 items-center">
-                        {/* The interactive SVG Canvas Pie */}
-                        <div className="flex justify-center relative">
-                          <svg viewBox="0 0 100 100" className="w-40 h-40 transform -rotate-90">
-                            {getPieSlices().map((slice, i) => (
-                              <path
-                                key={slice.key}
-                                d={slice.pathData}
-                                fill={slice.color}
-                                className="transition-all duration-300 hover:opacity-90 cursor-help"
-                                title={`${slice.key}: ${slice.percentage.toFixed(0)}%`}
-                              />
-                            ))}
-                          </svg>
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-10 h-10 rounded-full bg-slate-950 border border-white/5" />
-                          </div>
-                        </div>
-
-                        {/* Interactive adjustment controllers */}
-                        <div className="space-y-3 font-mono text-xs">
-                          {[
-                            { key: 'email', label: 'Email Channels', color: 'bg-blue-500', text: 'text-blue-400' },
-                            { key: 'whatsapp', label: 'WhatsApp', color: 'bg-green-500', text: 'text-green-400' },
-                            { key: 'alternative', label: 'Alternative platforms', color: 'bg-slate-400', text: 'text-slate-400' }
-                          ].map(item => {
-                            const val = conversionStats[item.key as 'email' | 'whatsapp' | 'alternative'];
-                            return (
-                              <div key={item.key} className="space-y-1">
-                                <div className="flex justify-between items-center text-[10px]">
-                                  <span className="flex items-center gap-1.5 font-sans font-bold text-slate-300">
-                                    <span className={`w-2 h-2 rounded-full ${item.color}`} />
-                                    {item.label}
-                                  </span>
-                                  <span className={`${item.text} font-bold font-mono`}>{val} leads</span>
-                                </div>
-                                
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={val}
-                                    onChange={(e) => {
-                                      const numeric = parseInt(e.target.value) || 0;
-                                      setConversionStats(prev => ({ ...prev, [item.key]: numeric }));
-                                    }}
-                                    className="w-full accent-indigo-500 cursor-ew-resize bg-slate-950 h-1 rounded"
-                                  />
-                                  <input
-                                    type="number"
-                                    value={val}
-                                    onChange={(e) => {
-                                      const numeric = parseInt(e.target.value) || 0;
-                                      setConversionStats(prev => ({ ...prev, [item.key]: numeric }));
-                                    }}
-                                    className="w-10 bg-slate-950 border border-white/5 text-[9px] py-0.5 rounded text-center text-white"
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-white/5 text-center text-[10px] text-slate-500 font-mono">
-                      Real-Time SVG updates immediately render above.
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* 3. Global Ratings Histogram (Editable Matrix) */}
-                <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
-                    <div>
-                      <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
-                        <Star className="w-4.5 h-4.5 text-amber-400" />
-                        Global Ratings & Review Statistics Matrix
-                      </h3>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Alter count levels to recalculate the weighted public score on the fly.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center space-x-6">
-                      <div className="text-center font-mono">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold block">Weighted Score</span>
-                        <span className="text-2xl font-black text-amber-400 leading-none block mt-1">{computedAverageScore} / 5.0</span>
-                      </div>
-                      <div className="text-center font-mono border-l border-white/5 pl-6">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold block">Testimonies Count</span>
-                        <span className="text-2xl font-black text-white leading-none block mt-1">{totalReviewsCount} files</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    {[
-                      { key: 'fiveStar', stars: 5, color: 'bg-amber-400', label: 'Excellent (5★)' },
-                      { key: 'fourStar', stars: 4, color: 'bg-amber-300', label: 'Satisfactory (4★)' },
-                      { key: 'threeStar', stars: 3, color: 'bg-amber-200', label: 'Average (3★)' },
-                      { key: 'twoStar', stars: 2, color: 'bg-orange-400', label: 'Mediocre (2★)' },
-                      { key: 'oneStar', stars: 1, color: 'bg-rose-500', label: 'Deficient (1★)' }
-                    ].map(tier => {
-                      const value = starsHistogram[tier.key as keyof typeof starsHistogram];
-                      const pct = totalReviewsCount > 0 ? (value / totalReviewsCount) * 100 : 0;
-                      return (
-                        <div key={tier.key} className="bg-slate-950/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
-                          <span className="text-[10px] font-bold text-slate-400 font-mono uppercase block">{tier.label}</span>
-                          
-                          {/* Visual mini bar */}
-                          <div className="w-full h-1.5 bg-slate-900 rounded-full my-3 overflow-hidden">
-                            <div className={`h-full ${tier.color}`} style={{ width: `${pct}%` }} />
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-500 font-mono">{pct.toFixed(0)}% share</span>
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => setStarsHistogram(prev => ({ ...prev, [tier.key]: Math.max(0, value - 1) }))}
-                                className="p-0.5 bg-white/5 hover:bg-white/10 border border-white/5 text-slate-400 hover:text-white rounded text-[10px] font-mono leading-none"
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                value={value}
-                                onChange={(e) => {
-                                  const v = parseInt(e.target.value) || 0;
-                                  setStarsHistogram(prev => ({ ...prev, [tier.key]: v }));
-                                }}
-                                className="w-10 bg-slate-900 border border-white/10 rounded text-[10px] text-center font-mono py-0.5 text-white focus:outline-none"
-                              />
-                              <button
-                                onClick={() => setStarsHistogram(prev => ({ ...prev, [tier.key]: value + 1 }))}
-                                className="p-0.5 bg-white/5 hover:bg-white/10 border border-white/5 text-slate-400 hover:text-white rounded text-[10px] font-mono leading-none"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 4. Service Specific Domain Ratings matrix */}
-                <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl">
-                  <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2 mb-2">
-                    <Award className="w-4.5 h-4.5 text-indigo-400" />
-                    Service-Specific Domain Ratings Matrix
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mb-6">
-                    Customize isolated rating averages associated with discrete expertise categories.
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {domainRatings.map((dom, idx) => (
-                      <div key={dom.domain} className="bg-slate-950/60 border border-white/5 rounded-2xl p-4 relative group">
-                        <span className="text-[10px] text-indigo-400 font-bold font-mono tracking-wider block mb-1">DOMAIN VERTICAL</span>
-                        <h4 className="text-xs font-sans font-bold text-white max-w-[180px] leading-tight min-h-[32px]">{dom.domain}</h4>
-                        
-                        <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                          <span className="text-xs font-mono font-black text-amber-400">★ {dom.score.toFixed(2)}</span>
-                          
-                          <div className="flex items-center space-x-1">
-                            <input
-                              type="range"
-                              min="3"
-                              max="5"
-                              step="0.01"
-                              value={dom.score}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 4.5;
-                                const copy = [...domainRatings];
-                                copy[idx].score = val;
-                                setDomainRatings(copy);
-                              }}
-                              className="w-20 h-1 accent-indigo-500 cursor-ew-resize bg-slate-900 rounded"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={dom.score}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 4.5;
-                                const copy = [...domainRatings];
-                                copy[idx].score = val;
-                                setDomainRatings(copy);
-                              }}
-                              className="w-11 bg-slate-900 border border-white/5 rounded text-[9px] text-center font-mono py-0.5 text-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
+              <AnalyticsTab
+                stats={stats}
+                onUpdateStats={handleUpdateStats}
+                services={services}
+                ratings={ratings}
+              />
             )}
 
             {/* ============================================================== */}
@@ -1035,28 +1004,50 @@ export default function AdminDashboard({
                       {services.map(s => {
                         const isSelected = selectedServiceId === s.id && !isCreatingNewService;
                         return (
-                          <button
+                          <div
                             key={s.id}
-                            onClick={() => {
-                              setSelectedServiceId(s.id);
-                              setIsCreatingNewService(false);
-                            }}
                             className={`w-full text-left p-3.5 rounded-2xl border text-xs flex flex-col justify-between transition-all ${
                               isSelected
                                 ? 'bg-indigo-600/15 border-indigo-500/80 text-white shadow-md'
                                 : 'bg-slate-950/40 border-white/5 text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
                             }`}
                           >
-                            <div className="flex items-center justify-between w-full">
-                              <span className="font-bold text-slate-200 text-sm truncate">{s.name}</span>
-                              <span className="text-[9px] font-mono bg-slate-950 px-2 py-0.5 rounded border border-white/5 text-slate-400 shrink-0">
-                                {s.portfolio?.length || 0} portfolios
-                              </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedServiceId(s.id);
+                                setIsCreatingNewService(false);
+                                setEditingPortfolioId(null);
+                              }}
+                              className="text-left w-full"
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-bold text-slate-200 text-sm truncate">{s.name}</span>
+                                <span className="text-[9px] font-mono bg-slate-950 px-2 py-0.5 rounded border border-white/5 text-slate-400 shrink-0">
+                                  {s.portfolio?.length || 0} portfolios
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-2 truncate w-full leading-normal">
+                                {s.overallDescription || s.shortDesc}
+                              </p>
+                            </button>
+                            {/* Row action: Delete service (with edit active indicator) */}
+                            <div className="flex items-center justify-end gap-1.5 mt-2 pt-2 border-t border-white/5">
+                              {isSelected && (
+                                <span className="text-[9px] font-mono text-indigo-400 uppercase tracking-wider mr-auto">
+                                  ● Editing
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteService(s.id)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                title="Delete entire service block"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-2 truncate w-full leading-normal">
-                              {s.overallDescription || s.shortDesc}
-                            </p>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1142,7 +1133,7 @@ export default function AdminDashboard({
                               value={activeService.name}
                               onChange={(e) => {
                                 const updated = services.map(s => s.id === activeService.id ? { ...s, name: e.target.value } : s);
-                                onUpdateServices(updated);
+                                handleUpdateServices(updated);
                               }}
                               className="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white font-sans font-bold focus:outline-none focus:border-indigo-500/80"
                             />
@@ -1157,7 +1148,7 @@ export default function AdminDashboard({
                               value={activeService.overallDescription || activeService.shortDesc}
                               onChange={(e) => {
                                 const updated = services.map(s => s.id === activeService.id ? { ...s, overallDescription: e.target.value, shortDesc: e.target.value.slice(0, 100) + '...' } : s);
-                                onUpdateServices(updated);
+                                handleUpdateServices(updated);
                               }}
                               className="w-full bg-slate-950/60 border border-white/10 rounded-2xl p-4 text-xs text-white font-sans leading-relaxed focus:outline-none focus:border-indigo-500/80"
                             />
@@ -1278,89 +1269,188 @@ export default function AdminDashboard({
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              {activeService.portfolio.map((item, index) => (
+                              {activeService.portfolio.map((item, index) => {
+                                const isEditing = editingPortfolioId === item.id;
+                                return (
                                 <motion.div
                                   layout
                                   key={item.id}
-                                  className="p-4 bg-slate-950/60 border border-white/5 hover:border-white/10 rounded-2xl flex items-start justify-between gap-4 transition-all"
+                                  className="p-4 bg-slate-950/60 border border-white/5 hover:border-white/10 rounded-2xl transition-all"
                                 >
-                                  {/* Thumbnail & Info Block */}
-                                  <div className="flex items-start space-x-4">
-                                    <img
-                                      src={item.thumbnailUrl || item.mediaUrl}
-                                      alt={item.title}
-                                      className="w-20 h-16 rounded-xl object-cover border border-white/5 shrink-0"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                    <div className="space-y-1.5">
-                                      <h4 className="text-xs font-bold text-white font-sans">{item.title}</h4>
-                                      
-                                      {/* Tags rows */}
-                                      <div className="flex flex-wrap gap-1">
-                                        {item.skills.map(sk => (
-                                          <span key={sk} className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 px-1.5 py-0.5 rounded uppercase font-mono font-bold">
-                                            {sk}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      
-                                      <p className="text-[10px] text-slate-400 leading-relaxed font-sans max-w-md line-clamp-2">
-                                        {item.description}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  {/* Shuffling Ordering Controls & Trash Action */}
-                                  <div className="flex items-center space-x-3 shrink-0">
-                                    
-                                    {/* Grip visual handle */}
-                                    <div className="p-1.5 text-slate-600 cursor-grab active:cursor-grabbing" title="Visual Rearrange Handle">
-                                      <GripVertical className="w-4 h-4" />
-                                    </div>
-
-                                    {/* Action shift selectors */}
-                                    <div className="flex flex-col space-y-1">
-                                      <button
-                                        disabled={index === 0}
-                                        onClick={() => handleMovePortfolioItem(activeService.id, index, 'up')}
-                                        className="p-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                        title="Move Project Case Up"
-                                      >
-                                        <ChevronUp className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        disabled={index === activeService.portfolio.length - 1}
-                                        onClick={() => handleMovePortfolioItem(activeService.id, index, 'down')}
-                                        className="p-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                        title="Move Project Case Down"
-                                      >
-                                        <ChevronDown className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-
-                                    {/* Destructive deletion */}
-                                    <button
-                                      onClick={() => {
-                                        const updated = services.map(s => {
-                                          if (s.id === activeService.id) {
-                                            return {
-                                              ...s,
-                                              portfolio: (s.portfolio || []).filter(p => p.id !== item.id)
-                                            };
-                                          }
-                                          return s;
-                                        });
-                                        onUpdateServices(updated);
-                                      }}
-                                      className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/10 transition-colors cursor-pointer"
-                                      title="Delete Project Card"
+                                  {isEditing ? (
+                                    /* INLINE EDIT FORM for portfolio item */
+                                    <form
+                                      onSubmit={(e) => handleSaveEditPortfolio(e, activeService.id, item.id)}
+                                      className="space-y-3"
                                     >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
+                                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                        <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                                          <Pencil className="w-3 h-3" /> Editing Portfolio Card
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelEditPortfolio}
+                                          className="text-[10px] font-mono font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                                        >
+                                          <XCircle className="w-3 h-3" /> Cancel
+                                        </button>
+                                      </div>
 
-                                  </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-mono text-slate-400 uppercase pl-1">Project Case Title</label>
+                                          <input
+                                            type="text"
+                                            required
+                                            value={editPortTitle}
+                                            onChange={(e) => setEditPortTitle(e.target.value)}
+                                            className="w-full bg-slate-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/60"
+                                          />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-mono text-slate-400 uppercase pl-1">Skills Badges (CSV)</label>
+                                          <input
+                                            type="text"
+                                            value={editPortSkillsInput}
+                                            onChange={(e) => setEditPortSkillsInput(e.target.value)}
+                                            className="w-full bg-slate-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/60"
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-mono text-slate-400 uppercase pl-1">Description</label>
+                                        <textarea
+                                          required
+                                          rows={2}
+                                          value={editPortDesc}
+                                          onChange={(e) => setEditPortDesc(e.target.value)}
+                                          className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500/60"
+                                        />
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-mono text-slate-400 uppercase pl-1">Media Type</label>
+                                          <select
+                                            value={editPortMediaType}
+                                            onChange={(e) => setEditPortMediaType(e.target.value as any)}
+                                            className="w-full bg-slate-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                                          >
+                                            <option value="image">Image</option>
+                                            <option value="video">Video</option>
+                                            <option value="pdf">PDF Document</option>
+                                          </select>
+                                        </div>
+                                        <div className="col-span-2 space-y-1">
+                                          <label className="text-[10px] font-mono text-slate-400 uppercase pl-1">Media URL</label>
+                                          <input
+                                            type="text"
+                                            value={editPortMediaUrl}
+                                            onChange={(e) => setEditPortMediaUrl(e.target.value)}
+                                            className="w-full bg-slate-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500/60"
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="submit"
+                                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                                      >
+                                        <Save className="w-4 h-4" /> Save Portfolio Changes
+                                      </button>
+                                    </form>
+                                  ) : (
+                                    <div className="flex items-start justify-between gap-4">
+                                      {/* Thumbnail & Info Block */}
+                                      <div className="flex items-start space-x-4">
+                                        <img
+                                          src={item.thumbnailUrl || item.mediaUrl}
+                                          alt={item.title}
+                                          className="w-20 h-16 rounded-xl object-cover border border-white/5 shrink-0"
+                                          referrerPolicy="no-referrer"
+                                        />
+                                        <div className="space-y-1.5">
+                                          <h4 className="text-xs font-bold text-white font-sans">{item.title}</h4>
+                                          
+                                          {/* Tags rows */}
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.skills.map(sk => (
+                                              <span key={sk} className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 px-1.5 py-0.5 rounded uppercase font-mono font-bold">
+                                                {sk}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          
+                                          <p className="text-[10px] text-slate-400 leading-relaxed font-sans max-w-md line-clamp-2">
+                                            {item.description}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Shuffling Ordering Controls & Trash Action */}
+                                      <div className="flex items-center space-x-2 shrink-0">
+                                        
+                                        {/* Grip visual handle */}
+                                        <div className="p-1.5 text-slate-600 cursor-grab active:cursor-grabbing" title="Visual Rearrange Handle">
+                                          <GripVertical className="w-4 h-4" />
+                                        </div>
+
+                                        {/* Action shift selectors */}
+                                        <div className="flex flex-col space-y-1">
+                                          <button
+                                            disabled={index === 0}
+                                            onClick={() => handleMovePortfolioItem(activeService.id, index, 'up')}
+                                            className="p-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                            title="Move Project Case Up"
+                                          >
+                                            <ChevronUp className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            disabled={index === activeService.portfolio.length - 1}
+                                            onClick={() => handleMovePortfolioItem(activeService.id, index, 'down')}
+                                            className="p-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                            title="Move Project Case Down"
+                                          >
+                                            <ChevronDown className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+
+                                        {/* NEW: Edit Portfolio button */}
+                                        <button
+                                          onClick={() => handleStartEditPortfolio(item)}
+                                          className="p-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 rounded-xl border border-indigo-500/10 transition-colors cursor-pointer"
+                                          title="Edit Portfolio Card"
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </button>
+
+                                        {/* Destructive deletion */}
+                                        <button
+                                          onClick={() => {
+                                            const updated = services.map(s => {
+                                              if (s.id === activeService.id) {
+                                                return {
+                                                  ...s,
+                                                  portfolio: (s.portfolio || []).filter(p => p.id !== item.id)
+                                                };
+                                              }
+                                              return s;
+                                            });
+                                            handleUpdateServices(updated);
+                                            if (editingPortfolioId === item.id) setEditingPortfolioId(null);
+                                          }}
+                                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/10 transition-colors cursor-pointer"
+                                          title="Delete Project Card"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </motion.div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -1395,53 +1485,47 @@ export default function AdminDashboard({
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setReviewFormOpen(!reviewFormOpen)}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-600/15"
-                  >
-                    {reviewFormOpen ? 'Hide Input Sheet' : 'Onboard New Review Entry'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {editingReviewId && (
+                      <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-md uppercase tracking-wider flex items-center gap-1.5">
+                        <Pencil className="w-3 h-3" /> Editing Review
+                      </span>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (editingReviewId) {
+                          handleCancelReviewForm();
+                        } else {
+                          setReviewFormOpen(!reviewFormOpen);
+                        }
+                      }}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-600/15"
+                    >
+                      {editingReviewId ? 'Cancel Edit' : (reviewFormOpen ? 'Hide Input Sheet' : 'Onboard New Review Entry')}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Inline Creation Form */}
+                {/* Inline Creation / Edit Form */}
                 {reviewFormOpen && (
                   <motion.form 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!reviewForm.name.trim() || !reviewForm.comment.trim()) return;
-
-                      const created: Rating = {
-                        id: `rate-${Date.now()}`,
-                        serviceId: 'bookkeeping',
-                        name: reviewForm.name,
-                        designation: reviewForm.designation || 'Client Leader',
-                        company: reviewForm.company || 'Direct Agency',
-                        comment: reviewForm.comment,
-                        country: reviewForm.country,
-                        ratingStars: reviewForm.ratingStars,
-                        isApproved: true,
-                        avatarUrl: reviewForm.avatarUrl || '' // Leave blank to trigger flag overlay fallback
-                      };
-
-                      onUpdateRatings([created, ...ratings]);
-                      setReviewForm({
-                        name: '',
-                        designation: '',
-                        company: '',
-                        comment: '',
-                        country: 'United States',
-                        ratingStars: 5,
-                        avatarUrl: ''
-                      });
-                      setReviewFormOpen(false);
-                    }}
+                    onSubmit={handleSubmitReview}
                     className="bg-slate-900/60 border border-indigo-500/20 p-6 rounded-3xl space-y-4"
                   >
-                    <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest pl-1">
-                      New Testimony Credentials Form
-                    </h4>
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+                        {editingReviewId ? <><Pencil className="w-3 h-3" /> Edit Existing Testimony</> : 'New Testimony Credentials Form'}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleCancelReviewForm}
+                        className="text-[10px] font-mono font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel
+                      </button>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1.5">
@@ -1529,9 +1613,9 @@ export default function AdminDashboard({
 
                     <button
                       type="submit"
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
-                      Lock and Publish Testimony
+                      {editingReviewId ? <><Save className="w-4 h-4" /> Save Changes to Testimony</> : 'Lock and Publish Testimony'}
                     </button>
                   </motion.form>
                 )}
@@ -1612,6 +1696,17 @@ export default function AdminDashboard({
 
                           {/* Destructive Deletion */}
                           <button
+                            onClick={() => handleEditReview(rate)}
+                            className={`p-2.5 border rounded-xl transition-all cursor-pointer ${
+                              editingReviewId === rate.id
+                                ? 'bg-indigo-600 text-white border-indigo-500/30'
+                                : 'bg-indigo-500/10 hover:bg-indigo-500/25 border-indigo-500/10 hover:border-indigo-500/30 text-indigo-400 hover:text-indigo-300'
+                            }`}
+                            title="Edit testimony"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteRating(rate.id)}
                             className="p-2.5 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/10 hover:border-rose-500/30 text-rose-400 hover:text-rose-300 rounded-xl transition-all cursor-pointer"
                             title="Instantly Delete testimony"
@@ -1645,51 +1740,47 @@ export default function AdminDashboard({
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setIsOnboardingEmployee(!isOnboardingEmployee)}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-                  >
-                    {isOnboardingEmployee ? 'Close Onboard Form' : '+ Onboard New Employee'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {editingMemberId && (
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-md uppercase tracking-wider flex items-center gap-1.5">
+                        <Pencil className="w-3 h-3" /> Editing Member
+                      </span>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (editingMemberId) {
+                          handleCancelTeamMemberForm();
+                        } else {
+                          setIsOnboardingEmployee(!isOnboardingEmployee);
+                        }
+                      }}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      {editingMemberId ? 'Cancel Edit' : (isOnboardingEmployee ? 'Close Onboard Form' : '+ Onboard New Employee')}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Onboard form panel */}
+                {/* Onboard / Edit form panel */}
                 {isOnboardingEmployee && (
                   <motion.form 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!employeeForm.name.trim() || !employeeForm.role.trim()) return;
-
-                      const onboarded: TeamMember = {
-                        id: `member-${Date.now()}`,
-                        name: employeeForm.name,
-                        role: employeeForm.role,
-                        bio: employeeForm.bio || 'Vetted consultant delivering secure corporate solutions.',
-                        avatarUrl: employeeForm.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
-                        email: employeeForm.email || 'consult@onestop.com',
-                        specialties: employeeForm.specialtiesInput.split(',').map(s => s.trim()).filter(Boolean),
-                        isOnline: employeeForm.isOnline
-                      };
-
-                      onUpdateTeamMembers([...teamMembers, onboarded]);
-                      setEmployeeForm({
-                        name: '',
-                        role: '',
-                        bio: '',
-                        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
-                        email: '',
-                        specialtiesInput: '',
-                        isOnline: true
-                      });
-                      setIsOnboardingEmployee(false);
-                    }}
+                    onSubmit={handleSubmitTeamMember}
                     className="bg-slate-900/60 border border-emerald-500/20 p-6 rounded-3xl space-y-4 overflow-hidden"
                   >
-                    <h4 className="text-xs font-black text-emerald-400 uppercase tracking-widest">
-                      Corporate Onboard Personnel Registry Form
-                    </h4>
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <h4 className="text-xs font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                        {editingMemberId ? <><Pencil className="w-3 h-3" /> Edit Personnel Profile</> : 'Corporate Onboard Personnel Registry Form'}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleCancelTeamMemberForm}
+                        className="text-[10px] font-mono font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel
+                      </button>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1.5">
@@ -1766,9 +1857,9 @@ export default function AdminDashboard({
 
                     <button
                       type="submit"
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
-                      Authenticate and Register Employee
+                      {editingMemberId ? <><Save className="w-4 h-4" /> Save Member Changes</> : 'Authenticate and Register Employee'}
                     </button>
                   </motion.form>
                 )}
@@ -1819,8 +1910,20 @@ export default function AdminDashboard({
                               <ChevronDown className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              onClick={() => handleEditTeamMember(member)}
+                              className={`p-1 border rounded cursor-pointer transition-colors ${
+                                editingMemberId === member.id
+                                  ? 'bg-emerald-600 text-white border-emerald-500/30'
+                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/10 text-emerald-400 hover:text-emerald-300'
+                              }`}
+                              title="Edit Member Profile"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => {
-                                onUpdateTeamMembers(teamMembers.filter(m => m.id !== member.id));
+                                handleUpdateTeamMembers(teamMembers.filter(m => m.id !== member.id));
+                                if (editingMemberId === member.id) handleCancelTeamMemberForm();
                               }}
                               className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/10 rounded-lg cursor-pointer"
                               title="Decommission Employee File"
@@ -1920,11 +2023,15 @@ export default function AdminDashboard({
                         Provide visitor portals with unencoded target links. These bind dynamically onto active footer and navbar hooks.
                       </p>
 
-                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      <div className="admin-scroll space-y-2 max-h-60 overflow-y-auto pr-1">
                         {channels.map((ch, idx) => (
                           <div 
-                            key={ch.name}
-                            className="flex items-center justify-between p-3 bg-slate-950/60 border border-white/5 rounded-xl text-xs font-mono"
+                            key={`${ch.name}-${idx}`}
+                            className={`flex items-center justify-between p-3 border rounded-xl text-xs font-mono transition-colors ${
+                              editingChannelIdx === idx
+                                ? 'bg-indigo-600/15 border-indigo-500/50'
+                                : 'bg-slate-950/60 border-white/5'
+                            }`}
                           >
                             <div>
                               <span className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 px-1.5 py-0.5 rounded uppercase font-bold mr-2.5">
@@ -1934,36 +2041,58 @@ export default function AdminDashboard({
                               <p className="text-[10px] text-slate-500 mt-1 truncate max-w-xs">{ch.url}</p>
                             </div>
 
-                            <button
-                              onClick={() => setChannels(channels.filter((_, i) => i !== idx))}
-                              className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors cursor-pointer"
-                              title="Delete route node"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {editingChannelIdx === idx && (
+                                <span className="text-[9px] font-mono text-indigo-400 uppercase tracking-wider mr-1">
+                                  ● Editing
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleEditChannel(idx)}
+                                className={`p-2 border rounded-lg transition-colors cursor-pointer ${
+                                  editingChannelIdx === idx
+                                    ? 'bg-indigo-600 text-white border-indigo-500/30'
+                                    : 'bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/10 text-indigo-400 hover:text-indigo-300'
+                                }`}
+                                title="Edit route node"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setChannels(channels.filter((_, i) => i !== idx));
+                                  if (editingChannelIdx === idx) handleCancelChannelForm();
+                                }}
+                                className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors cursor-pointer"
+                                title="Delete route node"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* New Channel Onboard Form */}
+                    {/* New Channel / Edit Channel Form */}
                     <form 
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!newChannelName.trim() || !newChannelUrl.trim()) return;
-                        setChannels([...channels, {
-                          name: newChannelName,
-                          type: newChannelType,
-                          url: newChannelUrl
-                        }]);
-                        setNewChannelName('');
-                        setNewChannelUrl('');
-                      }}
+                      onSubmit={handleSubmitChannel}
                       className="mt-6 pt-5 border-t border-white/5 space-y-3"
                     >
-                      <h4 className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest pl-1">
-                        Add New Freelance/Social Link Node
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+                          {editingChannelIdx >= 0 ? <><Pencil className="w-3 h-3" /> Edit Route Node</> : 'Add New Freelance/Social Link Node'}
+                        </h4>
+                        {editingChannelIdx >= 0 && (
+                          <button
+                            type="button"
+                            onClick={handleCancelChannelForm}
+                            className="text-[10px] font-mono font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                          >
+                            <XCircle className="w-3 h-3" /> Cancel Edit
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <input
                           type="text"
@@ -1971,12 +2100,12 @@ export default function AdminDashboard({
                           placeholder="e.g. Fiverr Pro Account"
                           value={newChannelName}
                           onChange={(e) => setNewChannelName(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/60"
                         />
                         <select
                           value={newChannelType}
                           onChange={(e) => setNewChannelType(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/60"
                         >
                           <option value="LinkedIn">LinkedIn</option>
                           <option value="Upwork">Upwork</option>
@@ -1990,14 +2119,14 @@ export default function AdminDashboard({
                           placeholder="https://fiverr.com/username"
                           value={newChannelUrl}
                           onChange={(e) => setNewChannelUrl(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-600"
+                          className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500/60"
                         />
                       </div>
                       <button
                         type="submit"
-                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
                       >
-                        Register social route channel
+                        {editingChannelIdx >= 0 ? <><Save className="w-4 h-4" /> Save Channel Changes</> : 'Register social route channel'}
                       </button>
                     </form>
                   </div>
