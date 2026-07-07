@@ -10,6 +10,7 @@ import RatingsSection from './components/RatingsSection';
 import FAQsSection from './components/FAQsSection';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
+import ChatbotWidget from './components/ChatbotWidget';
 
 // Admin Components & Data Hooks
 import AdminDashboard from './components/AdminDashboard';
@@ -411,6 +412,9 @@ export default function App() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Floating chatbot widget — only on the public site */}
+      <ChatbotWidget />
 
     </div>
   );

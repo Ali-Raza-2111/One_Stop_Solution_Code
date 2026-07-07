@@ -642,6 +642,21 @@ export const apiClient = {
   async deleteResource(id: string): Promise<void> {
     await api.delete(`/resources/${id}`);
   },
+
+  // ---- Chatbot ----
+  async sendChatMessage(message: string, sessionId?: string): Promise<{
+    reply: string;
+    intent: string;
+    source_faq_id: number | null;
+    suggestions: string[];
+  }> {
+    const { data } = await api.post('/chatbot/', { message, session_id: sessionId });
+    return data;
+  },
+  async getChatSuggestions(): Promise<string[]> {
+    const { data } = await api.get('/chatbot/suggestions');
+    return data.suggestions || [];
+  },
 };
 
 /**

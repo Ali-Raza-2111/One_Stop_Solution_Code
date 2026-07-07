@@ -10,7 +10,7 @@ from app.routes import (
     health, users, auth, services, enquiries, consultations,
     ratings, resources, team_members, stats, seed,
     faqs, certifications, contact_platforms, dashboard, visits,
-    uploads, admin_users,
+    uploads, admin_users, chatbot,
 )
 from app.services import seed_service
 
@@ -69,6 +69,8 @@ def create_app() -> FastAPI:
     # P2 routers
     app.include_router(uploads.router)
     app.include_router(admin_users.router)
+    # P4 routers
+    app.include_router(chatbot.router)
 
     # Serve uploaded files at /uploads/{category}/{filename}
     upload_path = Path(settings.UPLOAD_DIR).resolve()
@@ -90,6 +92,7 @@ def create_app() -> FastAPI:
                 "/stats/dashboard", "/visits/", "/visits/by-country",
                 "/uploads/portfolio", "/uploads/resource",
                 "/admin-users/", "/admin-users/me",
+                "/chatbot/", "/chatbot/suggestions",
             ],
         }
 
