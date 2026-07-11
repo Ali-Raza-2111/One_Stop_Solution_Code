@@ -10,6 +10,7 @@ import RatingsSection from './components/RatingsSection';
 import FAQsSection from './components/FAQsSection';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
+import ChatbotWidget from './components/ChatbotWidget';
 
 // Admin Components & API hooks
 import AdminDashboard from './components/AdminDashboard';
@@ -299,6 +300,8 @@ export default function App() {
       </main>
 
       <Footer onNavigate={handleNavigate} />
+
+      <ChatbotWidget />
 
       <AdminLoginModal
         isOpen={isLoginModalOpen}

@@ -154,3 +154,22 @@ Stage Summary:
 - ✅ Frontend apiClient.sendChatMessage added (fixes pre-existing TS error)
 - ✅ TypeScript clean + Vite build passes
 - 🔗 Branch: https://github.com/Ali-Raza-2111/One_Stop_Solution_Code/tree/Shahid_Backend
+
+---
+Task ID: local-commit-1
+Agent: main
+Task: Commit pending local changes (missing backend routers + chatbot widget UI + start script) to Shahid_Backend branch via Shahid-ALI12
+
+Work Log:
+- Inspected `git status` on Shahid_Backend — found 2 modified + 28 untracked files
+- Modified: frontend/src/App.tsx (mount <ChatbotWidget/>), scripts/start_backend_detached.sh (use shared /home/z/.venv, env-var override for DATABASE_URL)
+- Untracked backend files: 4 models (certification, contact_platform, faq, visit), 6 routes (admin_users, certifications, contact_platforms, faqs, uploads, visits), 8 schemas, 10 services — all from the earlier "8 unregistered routers" fix that should have been in commit 2b4f2c2 but were missed by `git add`
+- Untracked frontend file: ChatbotWidget.tsx — the website chatbot UI widget that pairs with the backend chatbot endpoints from 2b4f2c2
+- Skipped binary PNG screenshots (chatbot_*.png) — local debug outputs, not source
+- Verified no `ghp_` / `github_pat_` / `REDACTED` patterns in staged diff (would trip GitHub secret scanner)
+- git config set: user.name=Shahid-ALI12, user.email=211774894+Shahid-ALI12@users.noreply.github.com
+- Staged 31 files, will commit + push to origin/Shahid_Backend
+
+Stage Summary:
+- Commit message: "feat(backend+ui): register missing routers (FAQ/Visit/Cert/Contact/Upld/AdminUsr) + mount ChatbotWidget on frontend"
+- Push target: origin/Shahid_Backend via Shahid-ALI12 account
