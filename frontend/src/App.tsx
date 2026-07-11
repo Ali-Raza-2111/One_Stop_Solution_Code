@@ -284,7 +284,7 @@ export default function App() {
         {/* ResourceHubSection currently imports RESOURCES internally; pass nothing extra */}
         <ResourceHubSection />
 
-        <TeamSection teamList={teamMembers} />
+        <TeamSection />
 
         <FAQsSection />
 

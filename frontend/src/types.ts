@@ -89,5 +89,10 @@ export interface TeamMember {
   specialties: string[];
   isOnline: boolean;
   email: string;
+  // New fields used by the updated TeamSection (from zip)
+  title?: string;
+  pictureUrl?: string;
+  experience?: string;
+  certifications?: string[];
 }
 

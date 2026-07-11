@@ -432,6 +432,70 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
 ];
 
 /* ===================================================================
+ * TEAM — canonical data for the public TeamSection (new design from
+ * zip). Includes both old-shape fields (for backward compatibility
+ * with AdminDashboard / api-client mappings) and new-shape fields
+ * (title / pictureUrl / experience / certifications) consumed by the
+ * updated TeamSection component.
+ * =================================================================== */
+export const TEAM: TeamMember[] = [
+  {
+    id: 'tm1',
+    name: 'Muhammad Farhan',
+    role: 'Lead Accounting Specialist & Certified ProAdvisor',
+    bio: '',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
+    specialties: [],
+    isOnline: true,
+    email: '',
+    title: 'Lead Accounting Specialist & Certified ProAdvisor',
+    pictureUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
+    experience: '8+ Years',
+    certifications: [
+      'Intuit QuickBooks Certified ProAdvisor',
+      'Advanced Certified Bookkeeper',
+      'Xero Certified Advisor'
+    ]
+  },
+  {
+    id: 'tm2',
+    name: 'Sidra Amin',
+    role: 'Senior Microsoft Office Architect & Admin Lead',
+    bio: '',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400',
+    specialties: [],
+    isOnline: true,
+    email: '',
+    title: 'Senior Microsoft Office Architect & Admin Lead',
+    pictureUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400',
+    experience: '6+ Years',
+    certifications: [
+      'Microsoft Office Specialist (MOS) Excel Expert',
+      'Adobe Acrobat Certified Professional',
+      'Certified Virtual Assistant (CVA)'
+    ]
+  },
+  {
+    id: 'tm3',
+    name: 'Tariq Mehmood',
+    role: 'Internal Audit Director & Risk Consultant',
+    bio: '',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=400',
+    specialties: [],
+    isOnline: false,
+    email: '',
+    title: 'Internal Audit Director & Risk Consultant',
+    pictureUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=400',
+    experience: '10+ Years',
+    certifications: [
+      'Certified Internal Auditor (CIA)',
+      'Association of Chartered Certified Accountants (ACCA)',
+      'SOX Compliance Specialist'
+    ]
+  }
+];
+
+/* ===================================================================
  * MOCK ENQUIRIES — seeded so the admin Contacts tab shows realistic
  * entries even when the backend is unreachable.
  * =================================================================== */
