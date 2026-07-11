@@ -419,4 +419,39 @@ export const apiClient = {
   async deleteTeamMember(id: string): Promise<void> {
     await api.delete(`/team/${id}`);
   },
+
+  // ---- Chatbot (website) ----
+  async sendChatMessage(message: string, sessionId: string): Promise<{
+    reply: string;
+    intent: string;
+    source_faq_id: number | null;
+    suggestions: string[];
+    session_id: string | null;
+  }> {
+    const { data } = await api.post('/chatbot/', {
+      message,
+      session_id: sessionId,
+      channel: 'web',
+    });
+    return data;
+  },
+
+  async getChatSuggestions(): Promise<{ suggestions: string[] }> {
+    const { data } = await api.get('/chatbot/suggestions');
+    return data;
+  },
+
+  async getChatHistory(sessionId: string): Promise<{
+    session_id: string;
+    messages: Array<{ direction: string; body: string; intent: string; timestamp: string }>;
+    count: number;
+  }> {
+    const { data } = await api.get(`/chatbot/history/${encodeURIComponent(sessionId)}`);
+    return data;
+  },
+
+  async resetChatSession(sessionId: string): Promise<{ reset: boolean; message: string }> {
+    const { data } = await api.post(`/chatbot/reset/${encodeURIComponent(sessionId)}`);
+    return data;
+  },
 };
